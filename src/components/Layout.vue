@@ -31,25 +31,6 @@
             <el-icon><Monitor /></el-icon>
             <span>可视化大屏</span>
           </el-menu-item>
-          
-          <el-sub-menu index="analysis">
-            <template #title>
-              <el-icon><DataAnalysis /></el-icon>
-              <span>数据分析</span>
-            </template>
-            <el-menu-item index="/category-stats">
-              <el-icon><PieChart /></el-icon>
-              <span>分类统计</span>
-            </el-menu-item>
-            <el-menu-item index="/discount-analysis">
-              <el-icon><TrendCharts /></el-icon>
-              <span>折扣分析</span>
-            </el-menu-item>
-            <el-menu-item index="/rating-analysis">
-              <el-icon><DataLine /></el-icon>
-              <span>评分分析</span>
-            </el-menu-item>
-          </el-sub-menu>
 
           <el-sub-menu index="price">
             <template #title>
@@ -91,8 +72,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
-  HomeFilled, Monitor, DataAnalysis, PieChart, TrendCharts, 
-  DataLine, Money, Search, Document, Setting, InfoFilled 
+  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled 
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
