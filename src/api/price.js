@@ -6,15 +6,25 @@ import request from '@/utils/request'
 export const priceApi = {
   // 查询价格推荐列表（分页）
   getRecommendations(params) {
+    const requestParams = {
+      category: params.category,
+      keyword: params.keyword,
+      pageNum: params.pageNum || 1,
+      pageSize: params.pageSize || 20
+    }
+    
+    // 添加价格区间参数
+    if (params.minPrice !== undefined && params.minPrice !== null) {
+      requestParams.minPrice = params.minPrice
+    }
+    if (params.maxPrice !== undefined && params.maxPrice !== null) {
+      requestParams.maxPrice = params.maxPrice
+    }
+    
     return request({
       url: '/price/recommendations',
       method: 'get',
-      params: {
-        category: params.category,
-        keyword: params.keyword,
-        pageNum: params.pageNum || 1,
-        pageSize: params.pageSize || 20
-      }
+      params: requestParams
     })
   },
 

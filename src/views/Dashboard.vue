@@ -220,33 +220,100 @@ let pieChart = null
 let radarChart = null
 let diagnosisChart = null
 
+// 价格区间转换为minPrice和maxPrice
+const getPriceRange = () => {
+  if (!filters.value.priceRange) return { minPrice: null, maxPrice: null }
+  const range = filters.value.priceRange
+  if (range === '0-100') return { minPrice: 0, maxPrice: 100 }
+  if (range === '100-300') return { minPrice: 100, maxPrice: 300 }
+  if (range === '300-500') return { minPrice: 300, maxPrice: 500 }
+  if (range === '500-1000') return { minPrice: 500, maxPrice: 1000 }
+  if (range === '1000+') return { minPrice: 1000, maxPrice: null }
+  return { minPrice: null, maxPrice: null }
+}
+
 // 加载所有数据
 const loadAllData = async () => {
   try {
     // 加载分类统计
-    const categoryData = await categoryApi.getCategoryStats()
+    let categoryData = await categoryApi.getCategoryStats()
     categories.value = categoryData.map(item => item.productCategory)
+    
+    // 获取价格区间参数
+    const priceRange = getPriceRange()
+    
+    // 加载价格推荐数据（用于价格区间筛选和诊断分布）
+    let recommendationsResponse = await priceApi.getRecommendations({
+      category: filters.value.category || undefined,
+      minPrice: priceRange.minPrice,
+      maxPrice: priceRange.maxPrice,
+      pageNum: 1,
+      pageSize: filters.value.priceRange ? 10000 : 1000 // 如果筛选价格区间，需要更多数据用于统计
+    })
+    let recommendationsList = recommendationsResponse?.list || []
+    
+    // 如果筛选了价格区间，需要从价格推荐数据中重新计算分类统计
+    if (filters.value.priceRange && recommendationsList.length > 0) {
+      // 根据筛选后的推荐数据重新计算分类统计
+      const categoryMap = new Map()
+      recommendationsList.forEach(item => {
+        const cat = item.productCategory
+        if (!categoryMap.has(cat)) {
+          categoryMap.set(cat, {
+            productCategory: cat,
+            productCount: 0,
+            totalPrice: 0,
+            totalCount: 0
+          })
+        }
+        const stat = categoryMap.get(cat)
+        stat.productCount++
+        const price = item.actualPrice || item.predictedPrice || 0
+        stat.totalPrice += price
+        stat.totalCount++
+      })
+      
+      // 转换为分类统计数据格式（使用原始分类数据的其他字段作为参考）
+      const originalCategoryMap = new Map(categoryData.map(item => [item.productCategory, item]))
+      categoryData = Array.from(categoryMap.values()).map(stat => {
+        const original = originalCategoryMap.get(stat.productCategory) || {}
+        return {
+          productCategory: stat.productCategory,
+          productCount: stat.productCount,
+          avgDiscountedPrice: stat.totalCount > 0 ? stat.totalPrice / stat.totalCount : 0,
+          avgMonthlySales: original.avgMonthlySales || 0,
+          avgRating: original.avgRating || 0,
+          avgDiscountPct: original.avgDiscountPct || 0,
+          avgOriginalPrice: original.avgOriginalPrice || 0
+        }
+      })
+    } else if (filters.value.priceRange && recommendationsList.length === 0) {
+      // 如果没有匹配的数据，显示空数据
+      categoryData = []
+    }
+    
+    // 应用分类筛选（如果只筛选分类，不筛选价格区间）
+    if (filters.value.category && !filters.value.priceRange) {
+      categoryData = categoryData.filter(item => item.productCategory === filters.value.category)
+    }
     
     // 计算概览数据
     if (categoryData.length > 0) {
       overview.value.totalCategories = categoryData.length
       overview.value.totalProducts = categoryData.reduce((sum, item) => sum + (item.productCount || 0), 0)
       const totalPrice = categoryData.reduce((sum, item) => sum + (item.avgDiscountedPrice || 0) * (item.productCount || 0), 0)
-      overview.value.avgPrice = totalPrice / overview.value.totalProducts
+      overview.value.avgPrice = overview.value.totalProducts > 0 ? totalPrice / overview.value.totalProducts : 0
+    } else {
+      overview.value.totalCategories = 0
+      overview.value.totalProducts = 0
+      overview.value.avgPrice = 0
     }
 
     // 加载折扣分析
-    const discountData = await analysisApi.getDiscountSalesAnalysis()
+    let discountData = await analysisApi.getDiscountSalesAnalysis()
     
     // 加载评分分析
-    const ratingData = await analysisApi.getRatingPriceAnalysis()
-
-    // 加载价格推荐数据（用于诊断分布）
-    const recommendationsResponse = await priceApi.getRecommendations({
-      pageNum: 1,
-      pageSize: 1000
-    })
-    const recommendationsList = recommendationsResponse?.list || []
+    let ratingData = await analysisApi.getRatingPriceAnalysis()
 
     // 加载模型指标（用于计算准确率）
     try {
@@ -571,7 +638,7 @@ const renderDiagnosisChart = (data) => {
 
 // 筛选变化处理
 const handleFilterChange = () => {
-  // 这里可以根据筛选条件重新加载数据
+  // 筛选条件变化时自动重新加载数据
   loadAllData()
 }
 
