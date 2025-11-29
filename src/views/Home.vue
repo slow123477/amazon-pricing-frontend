@@ -49,10 +49,10 @@
           </el-card>
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover" class="quick-card" @click="$router.push('/category-stats')">
+          <el-card shadow="hover" class="quick-card" @click="$router.push('/dashboard')">
             <el-icon class="quick-icon" color="#67C23A"><PieChart /></el-icon>
-            <div class="quick-title">分类统计</div>
-            <div class="quick-desc">查看各分类价格分布</div>
+            <div class="quick-title">可视化大屏</div>
+            <div class="quick-desc">查看完整数据分析图表</div>
           </el-card>
         </el-col>
         <el-col :span="6">
@@ -75,6 +75,10 @@
 </template>
 
 <script setup>
+import { 
+  HomeFilled, Box, Menu, DataAnalysis, Search, 
+  PieChart, Document, InfoFilled 
+} from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
