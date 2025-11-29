@@ -242,13 +242,20 @@ const loadAllData = async () => {
     // 获取价格区间参数
     const priceRange = getPriceRange()
     
-    // 加载价格推荐数据（用于价格区间筛选和诊断分布）
+    // 加载诊断分布统计（使用专门的统计接口，更高效）
+    const diagnosisStatistics = await priceApi.getDiagnosisStatistics({
+      category: filters.value.category || undefined,
+      minPrice: priceRange.minPrice,
+      maxPrice: priceRange.maxPrice
+    })
+    
+    // 加载价格推荐数据（用于价格区间筛选，只需要少量数据用于重新计算分类统计）
     let recommendationsResponse = await priceApi.getRecommendations({
       category: filters.value.category || undefined,
       minPrice: priceRange.minPrice,
       maxPrice: priceRange.maxPrice,
       pageNum: 1,
-      pageSize: filters.value.priceRange ? 10000 : 1000 // 如果筛选价格区间，需要更多数据用于统计
+      pageSize: filters.value.priceRange ? 10000 : 100 // 如果筛选价格区间，需要更多数据用于重新计算分类统计
     })
     let recommendationsList = recommendationsResponse?.list || []
     
@@ -337,7 +344,7 @@ const loadAllData = async () => {
     renderHeatmapChart(categoryData, discountData)
     renderPieChart(categoryData)
     renderRadarChart(categoryData)
-    renderDiagnosisChart(recommendationsList)
+    renderDiagnosisChart(diagnosisStatistics) // 使用统计接口返回的数据
     
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -515,8 +522,17 @@ const renderHeatmapChart = (categoryData, discountData) => {
 const renderPieChart = (data) => {
   if (!pieChartRef.value) return
   pieChart = echarts.init(pieChartRef.value)
+  
+  // 计算总数量，用于判断是否显示标签
+  const total = data.reduce((sum, item) => sum + (item.productCount || 0), 0)
+  
   pieChart.setOption({
-    title: { text: '各分类商品数量占比', left: 'center', textStyle: { fontSize: 14 } },
+    title: { 
+      text: '各分类商品数量占比', 
+      left: 'center', 
+      top: '5%',
+      textStyle: { fontSize: 14 } 
+    },
     tooltip: {
       trigger: 'item',
       formatter: '{a} <br/>{b}: {c} ({d}%)'
@@ -524,27 +540,62 @@ const renderPieChart = (data) => {
     legend: {
       orient: 'vertical',
       left: 'left',
+      top: 'middle',
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: {
+        fontSize: 11
+      },
       data: data.map(item => item.productCategory)
     },
     series: [{
       name: '商品数量',
       type: 'pie',
-      radius: ['40%', '70%'],
-      avoidLabelOverlap: false,
+      radius: ['30%', '60%'],
+      center: ['60%', '55%'], // 向下移动，给标题留出空间
+      avoidLabelOverlap: true,
+      minAngle: 5, // 最小角度，小于5度的不显示
       itemStyle: {
-        borderRadius: 10,
+        borderRadius: 8,
         borderColor: '#fff',
         borderWidth: 2
       },
       label: {
         show: true,
-        formatter: '{b}: {c} ({d}%)'
+        position: 'outside',
+        formatter: (params) => {
+          // 占比小于2%的不显示标签，避免拥挤
+          if (params.percent < 2) {
+            return ''
+          }
+          return `${params.name}\n${params.percent}%`
+        },
+        fontSize: 10,
+        lineHeight: 12,
+        distanceToLabelLine: 3
+      },
+      labelLine: {
+        show: true,
+        showAbove: false, // 标签线不显示在顶部，避免与标题重叠
+        length: 20,
+        length2: 12,
+        smooth: 0.2,
+        lineStyle: {
+          width: 1
+        },
+        // 对于顶部区域的标签，使用更短的引导线
+        minTurnAngle: 90
       },
       emphasis: {
         label: {
           show: true,
-          fontSize: '16',
+          fontSize: 12,
           fontWeight: 'bold'
+        },
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
         }
       },
       data: data.map(item => ({
@@ -594,34 +645,32 @@ const renderRadarChart = (data) => {
 }
 
 // 8. 价格诊断分布（柱状图）
-const renderDiagnosisChart = (data) => {
+const renderDiagnosisChart = (statistics) => {
   if (!diagnosisChartRef.value) return
   diagnosisChart = echarts.init(diagnosisChartRef.value)
   
-  // 统计诊断结果
+  // statistics 是从后端返回的统计结果，格式：{ "价格偏高": 1314, "价格偏低": 11263, "价格合理": 26164 }
+  // 确保所有诊断类型都有值
   const diagnosisCount = {
-    '价格偏高': 0,
-    '价格偏低': 0,
-    '价格合理': 0
+    '价格偏高': statistics['价格偏高'] || 0,
+    '价格偏低': statistics['价格偏低'] || 0,
+    '价格合理': statistics['价格合理'] || 0
   }
   
-  data.forEach(item => {
-    if (item.diagnosis && diagnosisCount.hasOwnProperty(item.diagnosis)) {
-      diagnosisCount[item.diagnosis]++
-    }
-  })
+  const diagnosisTypes = Object.keys(diagnosisCount)
+  const diagnosisValues = Object.values(diagnosisCount)
   
   diagnosisChart.setOption({
     title: { text: '价格诊断结果分布', left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: Object.keys(diagnosisCount)
+      data: diagnosisTypes
     },
     yAxis: { type: 'value', name: '商品数量' },
     series: [{
       type: 'bar',
-      data: Object.values(diagnosisCount),
+      data: diagnosisValues,
       itemStyle: {
         color: (params) => {
           const colors = {
@@ -629,7 +678,7 @@ const renderDiagnosisChart = (data) => {
             '价格偏低': '#67c23a',
             '价格合理': '#409eff'
           }
-          return colors[Object.keys(diagnosisCount)[params.dataIndex]] || '#5470c6'
+          return colors[diagnosisTypes[params.dataIndex]] || '#5470c6'
         }
       }
     }]

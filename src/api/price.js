@@ -44,6 +44,25 @@ export const priceApi = {
       method: 'post',
       data
     })
+  },
+
+  // 获取诊断分布统计
+  getDiagnosisStatistics(params) {
+    const requestParams = {}
+    if (params?.category) {
+      requestParams.category = params.category
+    }
+    if (params?.minPrice !== undefined && params?.minPrice !== null) {
+      requestParams.minPrice = params.minPrice
+    }
+    if (params?.maxPrice !== undefined && params?.maxPrice !== null) {
+      requestParams.maxPrice = params.maxPrice
+    }
+    return request({
+      url: '/price/diagnosis/statistics',
+      method: 'get',
+      params: requestParams
+    })
   }
 }
 
