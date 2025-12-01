@@ -23,7 +23,7 @@
         </el-col>
         <el-col :span="6">
           <el-statistic title="平均价格" :value="494.96" :precision="2">
-            <template #prefix>¥</template>
+            <template #prefix>$</template>
           </el-statistic>
         </el-col>
         <el-col :span="6">

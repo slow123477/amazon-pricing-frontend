@@ -33,12 +33,12 @@
         <el-table-column prop="productCategory" label="分类" width="120" />
         <el-table-column prop="actualPrice" label="实际价格" width="120">
           <template #default="{ row }">
-            ¥{{ row.actualPrice?.toFixed(2) }}
+            ${{ row.actualPrice?.toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="predictedPrice" label="预测价格" width="120">
           <template #default="{ row }">
-            ¥{{ row.predictedPrice?.toFixed(2) }}
+            ${{ row.predictedPrice?.toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="diagnosis" label="诊断结果" width="120">

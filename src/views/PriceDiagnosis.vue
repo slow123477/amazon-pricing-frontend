@@ -59,9 +59,9 @@
               @change="handleSimulatorChange"
             />
             <div class="slider-labels">
-              <span>最低价: ¥{{ ((diagnosisResult.priceMin || 0) * 0.5).toFixed(2) }}</span>
-              <span>当前价格: ¥{{ simulatorPrice.toFixed(2) }}</span>
-              <span>最高价: ¥{{ ((diagnosisResult.priceMax || 1000) * 1.5).toFixed(2) }}</span>
+              <span>最低价: ${{ ((diagnosisResult.priceMin || 0) * 0.5).toFixed(2) }}</span>
+              <span>当前价格: ${{ simulatorPrice.toFixed(2) }}</span>
+              <span>最高价: ${{ ((diagnosisResult.priceMax || 1000) * 1.5).toFixed(2) }}</span>
             </div>
           </div>
           <el-button type="primary" @click="applySimulatorPrice" style="margin-top: 10px">
@@ -78,10 +78,10 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="分类">{{ diagnosisResult.category }}</el-descriptions-item>
           <el-descriptions-item label="平均定价">
-            <span style="color: #409EFF; font-weight: 600">¥{{ diagnosisResult.avgPrice?.toFixed(2) }}</span>
+            <span style="color: #409EFF; font-weight: 600">${{ diagnosisResult.avgPrice?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="当前商品价格">
-            <span style="color: #E6A23C; font-weight: 600">¥{{ diagnosisResult.currentPrice?.toFixed(2) }}</span>
+            <span style="color: #E6A23C; font-weight: 600">${{ diagnosisResult.currentPrice?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="系统诊断">
             <el-tag :type="getDiagnosisTagType(diagnosisResult.diagnosis)">
@@ -107,7 +107,7 @@
             <el-card shadow="hover" class="suggestion-item">
               <div class="suggestion-header">
                 <el-tag :type="getStrategyTagType(strategy)">{{ strategy }}策略</el-tag>
-                <span class="suggestion-price">¥{{ price.toFixed(2) }}</span>
+                <span class="suggestion-price">${{ price.toFixed(2) }}</span>
               </div>
               <div class="suggestion-desc">
                 <p v-if="strategy === '保守'">风险较低，适合稳健经营</p>
@@ -129,16 +129,16 @@
         </template>
         <el-descriptions :column="2" border>
           <el-descriptions-item label="最低价格">
-            <span style="color: #67C23A; font-weight: 600">¥{{ diagnosisResult.priceMin?.toFixed(2) }}</span>
+            <span style="color: #67C23A; font-weight: 600">${{ diagnosisResult.priceMin?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="最高价格">
-            <span style="color: #F56C6C; font-weight: 600">¥{{ diagnosisResult.priceMax?.toFixed(2) }}</span>
+            <span style="color: #F56C6C; font-weight: 600">${{ diagnosisResult.priceMax?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="平均价格">
-            <span style="color: #409EFF; font-weight: 600">¥{{ diagnosisResult.priceAvgFromDist?.toFixed(2) }}</span>
+            <span style="color: #409EFF; font-weight: 600">${{ diagnosisResult.priceAvgFromDist?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="中位数价格">
-            <span style="color: #E6A23C; font-weight: 600">¥{{ diagnosisResult.priceMedian?.toFixed(2) }}</span>
+            <span style="color: #E6A23C; font-weight: 600">${{ diagnosisResult.priceMedian?.toFixed(2) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="当前价格排名" :span="2">
             <el-progress
@@ -302,7 +302,7 @@ const handleSimulatorChange = (value) => {
 
 // 格式化价格
 const formatPrice = (value) => {
-  return `¥${value.toFixed(2)}`
+  return `$${value.toFixed(2)}`
 }
 
 // 重置诊断表单
@@ -438,7 +438,8 @@ const renderPriceDistributionChart = () => {
       type: 'category',
       data: distribution.map(item => item.priceRange),
       axisLabel: {
-        rotate: 0
+        rotate: 0,
+        formatter: (value) => formatPriceRangeLabel(value)
       }
     },
     yAxis: {
@@ -526,6 +527,26 @@ const getCurrentPriceRange = (currentPrice) => {
   return '80-100%'
 }
 
+// 将百分比区间（0-20%）转换成更直观的价格区间文案（例如：$100 - $300）
+const formatPriceRangeLabel = (range) => {
+  if (!diagnosisResult.value || !diagnosisResult.value.priceMin || !diagnosisResult.value.priceMax) {
+    return range
+  }
+
+  const { priceMin, priceMax } = diagnosisResult.value
+  const parts = range.split('-')
+  if (parts.length !== 2) return range
+
+  const minPercent = parseFloat(parts[0])
+  const maxPercent = parseFloat(parts[1].replace('%', ''))
+  if (isNaN(minPercent) || isNaN(maxPercent)) return range
+
+  const minPrice = priceMin + (priceMax - priceMin) * (minPercent / 100)
+  const maxPrice = priceMin + (priceMax - priceMin) * (maxPercent / 100)
+
+  return `$${minPrice.toFixed(0)} - $${maxPrice.toFixed(0)}`
+}
+
 // 2. 渲染价格敏感度分析图（面积图）
 const renderPriceSensitivityChart = () => {
   if (!diagnosisResult.value || !diagnosisResult.value.priceSalesRelation || !priceSensitivityChart.value) {
@@ -554,7 +575,7 @@ const renderPriceSensitivityChart = () => {
       trigger: 'axis',
       formatter: (params) => {
         const data = params[0]
-        return `${data.name}<br/>平均价格: ¥${data.value[0].toFixed(2)}<br/>平均销量: ${data.value[1].toFixed(0)}`
+        return `${data.name}<br/>平均价格: $${data.value[0].toFixed(2)}<br/>平均销量: ${data.value[1].toFixed(0)}`
       }
     },
     legend: {
@@ -562,22 +583,29 @@ const renderPriceSensitivityChart = () => {
       top: '10%'
     },
     grid: {
-      left: '10%',
-      right: '10%',
-      bottom: '10%',
-      top: '20%'
+      left: 70,
+      right: 30,
+      bottom: 50,
+      top: 60,
+      containLabel: true
     },
     xAxis: {
       type: 'value',
-      name: '价格(¥)',
+      name: '价格($)',
       nameLocation: 'middle',
-      nameGap: 30
+      nameGap: 35,
+      nameTextStyle: {
+        fontSize: 12
+      }
     },
     yAxis: {
       type: 'value',
       name: '平均销量',
       nameLocation: 'middle',
-      nameGap: 50
+      nameGap: 45,
+      nameTextStyle: {
+        fontSize: 12
+      }
     },
     series: [{
       name: '价格-销量关系',
@@ -599,7 +627,7 @@ const renderPriceSensitivityChart = () => {
           name: '当前价格',
           xAxis: currentPrice,
           lineStyle: { color: '#E6A23C', width: 2, type: 'dashed' },
-          label: { formatter: '当前价格: ¥' + currentPrice.toFixed(2) }
+          label: { formatter: '当前价格: $' + currentPrice.toFixed(2) }
         }]
       }
     }]
@@ -663,22 +691,29 @@ const renderPriceImpactChart = () => {
       top: '10%'
     },
     grid: {
-      left: '10%',
-      right: '10%',
-      bottom: '10%',
-      top: '20%'
+      left: 80,
+      right: 30,
+      bottom: 55,
+      top: 60,
+      containLabel: true
     },
     xAxis: {
       type: 'value',
       name: '价格调整幅度(%)',
       nameLocation: 'middle',
-      nameGap: 30
+      nameGap: 35,
+      nameTextStyle: {
+        fontSize: 12
+      }
     },
     yAxis: {
       type: 'value',
       name: '预期销量变化(%)',
       nameLocation: 'middle',
-      nameGap: 50
+      nameGap: 45,
+      nameTextStyle: {
+        fontSize: 12
+      }
     },
     series: [{
       name: '预期销量变化',
@@ -835,7 +870,7 @@ const renderStrategyComparisonChart = () => {
       trigger: 'item',
       formatter: (params) => {
         const strategy = strategies.find(s => s.name === params.name)
-        return `${params.name}<br/>价格: ¥${strategy.price.toFixed(2)}<br/>预期销量变化: ${strategy.salesImpact > 0 ? '+' : ''}${strategy.salesImpact}%<br/>预期利润变化: ${strategy.profitImpact > 0 ? '+' : ''}${strategy.profitImpact}%`
+        return `${params.name}<br/>价格: $${strategy.price.toFixed(2)}<br/>预期销量变化: ${strategy.salesImpact > 0 ? '+' : ''}${strategy.salesImpact}%<br/>预期利润变化: ${strategy.profitImpact > 0 ? '+' : ''}${strategy.profitImpact}%`
       }
     },
     legend: {
@@ -858,7 +893,7 @@ const renderStrategyComparisonChart = () => {
       label: {
         show: true,
         position: 'inside',
-        formatter: '{b}\n¥{c}'
+        formatter: (params) => `${params.name}\n$${Number(params.value).toFixed(2)}`
       },
       labelLine: {
         length: 10,
@@ -877,7 +912,7 @@ const renderStrategyComparisonChart = () => {
         }
       },
       data: strategies.map(s => ({
-        value: s.price,
+        value: Number((s.price || 0).toFixed(2)),
         name: s.name,
         itemStyle: {
           color: s.name === '保守策略' ? '#909399' : s.name === '适中策略' ? '#67C23A' : '#E6A23C'
@@ -889,7 +924,7 @@ const renderStrategyComparisonChart = () => {
   strategyComparisonChartInstance.setOption(option)
 }
 
-// 6. 渲染价格区间分布树状图
+// 6. 渲染价格区间分布图（饼图）
 const renderPriceTreemapChart = () => {
   if (!diagnosisResult.value || !diagnosisResult.value.priceRangeDistribution || !priceTreemapChart.value) {
     return
@@ -905,10 +940,11 @@ const renderPriceTreemapChart = () => {
   const currentPrice = diagnosisResult.value.currentPrice
   const priceMin = diagnosisResult.value.priceMin
   const priceMax = diagnosisResult.value.priceMax
+  const colorPalette = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#9B59B6', '#1ABC9C']
 
   const option = {
     title: {
-      text: '价格区间分布（树状图）',
+      text: '价格区间占比（饼图）',
       left: 'center',
       top: '5%',
       textStyle: { fontSize: 14 }
@@ -916,34 +952,39 @@ const renderPriceTreemapChart = () => {
     tooltip: {
       trigger: 'item',
       formatter: (params) => {
-        return `${params.name}<br/>商品数量: ${params.value}`
+        const percent = params.percent?.toFixed(1) ?? 0
+        return `${params.name}<br/>商品数量: ${params.value} 件<br/>占比: ${percent}%`
       }
+    },
+    legend: {
+      orient: 'vertical',
+      right: 10,
+      top: 'middle',
+      formatter: (name) => name
     },
     series: [{
       name: '价格区间',
-      type: 'treemap',
-      data: distribution.map(item => {
+      type: 'pie',
+      radius: ['40%', '65%'],
+      center: ['40%', '55%'],
+      label: {
+        formatter: '{b}\n{c}件 ({d}%)'
+      },
+      data: distribution.map((item, index) => {
         const range = item.priceRange
         const isCurrentRange = getCurrentPriceRange(currentPrice) === range
+        const label = formatPriceRangeLabel(range)
+        const baseColor = colorPalette[index % colorPalette.length]
         return {
-          name: range,
+          name: label,
           value: item.count,
           itemStyle: {
-            color: isCurrentRange ? '#E6A23C' : '#409EFF',
-            borderColor: '#fff',
-            borderWidth: 2
-          },
-          label: {
-            show: true,
-            formatter: '{b}\n{c}件'
+            color: isCurrentRange ? '#FF9F43' : baseColor,
+            borderColor: isCurrentRange ? '#FF6F00' : '#ffffff',
+            borderWidth: isCurrentRange ? 2 : 1
           }
         }
-      }),
-      roam: false,
-      nodeClick: false,
-      breadcrumb: {
-        show: false
-      }
+      })
     }]
   }
 
@@ -1043,3 +1084,4 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 </style>
+

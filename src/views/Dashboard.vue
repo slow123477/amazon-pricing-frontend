@@ -48,7 +48,7 @@
       <el-col :xs="12" :sm="6" :md="6" :lg="6">
         <el-card shadow="hover" class="kpi-card">
           <el-statistic title="平均价格" :value="overview.avgPrice" :precision="2">
-            <template #prefix>¥</template>
+            <template #prefix>$</template>
           </el-statistic>
         </el-card>
       </el-col>
@@ -433,7 +433,7 @@ const renderCategoryChart = (data, isSingleCategory = false) => {
           },
           detail: {
             valueAnimation: true,
-            formatter: `¥${avgPrice.toFixed(2)}`,
+            formatter: `$${avgPrice.toFixed(2)}`,
             fontSize: 16,
             offsetCenter: [0, '70%']
           },
@@ -578,7 +578,7 @@ const renderCategoryChart = (data, isSingleCategory = false) => {
         axisLabel: { rotate: 45, interval: 0 }
       },
       yAxis: [
-        { type: 'value', name: '价格(¥)', position: 'left' },
+        { type: 'value', name: '价格($)', position: 'left' },
         { type: 'value', name: '销量', position: 'right' }
       ],
       series: [
@@ -775,10 +775,10 @@ const renderScatterChart = (data, isSingleCategory = false, recommendationsList 
       tooltip: {
         trigger: 'item',
         formatter: (params) => {
-          return `${params.data[3]}<br/>价格: ¥${params.data[0]}<br/>销量: ${params.data[1]}`
+          return `${params.data[3]}<br/>价格: $${params.data[0]}<br/>销量: ${params.data[1]}`
         }
       },
-      xAxis: { type: 'value', name: '平均价格(¥)' },
+      xAxis: { type: 'value', name: '平均价格($)' },
       yAxis: { type: 'value', name: '平均销量' },
       series: [{
         type: 'scatter',
@@ -811,7 +811,7 @@ const renderRatingChart = (data) => {
       type: 'category',
       data: data.map(item => `${item.ratingBucket}.0-${item.ratingBucket}.9`)
     },
-    yAxis: { type: 'value', name: '平均价格(¥)' },
+    yAxis: { type: 'value', name: '平均价格($)' },
     series: [{
       type: 'line',
       data: data.map(item => item.avgDiscountedPrice?.toFixed(2) || 0),
