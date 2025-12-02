@@ -222,6 +222,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { categoryApi } from '@/api/category'
 import { priceApi } from '@/api/price'
 import { ElMessage } from 'element-plus'
@@ -240,6 +241,8 @@ const priceImpactChart = ref(null)
 const competitivenessChart = ref(null)
 const strategyComparisonChart = ref(null)
 const priceTreemapChart = ref(null)
+const route = useRoute()
+const hasPrefilledFromRoute = ref(false)
 
 let priceDistributionChartInstance = null
 let priceSensitivityChartInstance = null
@@ -256,6 +259,32 @@ const loadCategories = async () => {
   } catch (error) {
     console.error('加载分类失败:', error)
   }
+}
+
+// 根据路由参数预填表单并自动诊断
+const prefillFromRoute = async () => {
+  if (hasPrefilledFromRoute.value) return
+  const { category, price } = route.query || {}
+  let shouldDiagnose = false
+
+  if (category) {
+    diagnosisForm.value.category = category
+    shouldDiagnose = true
+  }
+  if (price !== undefined) {
+    const parsedPrice = Number(price)
+    if (!Number.isNaN(parsedPrice) && parsedPrice > 0) {
+      diagnosisForm.value.price = parsedPrice
+      simulatorPrice.value = parsedPrice
+      shouldDiagnose = true
+    }
+  }
+
+  if (shouldDiagnose && diagnosisForm.value.category && diagnosisForm.value.price) {
+    await handleDiagnosis()
+  }
+
+  hasPrefilledFromRoute.value = true
 }
 
 // 处理实时价格诊断
@@ -1000,8 +1029,9 @@ watch(() => diagnosisResult.value, () => {
   }
 })
 
-onMounted(() => {
-  loadCategories()
+onMounted(async () => {
+  await loadCategories()
+  await prefillFromRoute()
 })
 
 // 组件卸载时销毁图表

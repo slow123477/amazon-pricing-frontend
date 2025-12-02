@@ -20,9 +20,45 @@ export const priceApi = {
     if (params.maxPrice !== undefined && params.maxPrice !== null) {
       requestParams.maxPrice = params.maxPrice
     }
+    // 添加诊断结果筛选
+    if (params.diagnosis !== undefined && params.diagnosis !== null && params.diagnosis !== '') {
+      requestParams.diagnosis = params.diagnosis
+    }
+    // 添加排序参数
+    if (params.sortBy !== undefined && params.sortBy !== null && params.sortBy !== '') {
+      requestParams.sortBy = params.sortBy
+    }
+    if (params.sortOrder !== undefined && params.sortOrder !== null && params.sortOrder !== '') {
+      requestParams.sortOrder = params.sortOrder
+    }
     
     return request({
       url: '/price/recommendations',
+      method: 'get',
+      params: requestParams
+    })
+  },
+
+  // 获取价格推荐概览统计
+  getRecommendationsOverview(params) {
+    const requestParams = {}
+    if (params?.category) {
+      requestParams.category = params.category
+    }
+    if (params?.keyword) {
+      requestParams.keyword = params.keyword
+    }
+    if (params?.minPrice !== undefined && params?.minPrice !== null) {
+      requestParams.minPrice = params.minPrice
+    }
+    if (params?.maxPrice !== undefined && params?.maxPrice !== null) {
+      requestParams.maxPrice = params.maxPrice
+    }
+    if (params?.diagnosis !== undefined && params?.diagnosis !== null && params?.diagnosis !== '') {
+      requestParams.diagnosis = params.diagnosis
+    }
+    return request({
+      url: '/price/recommendations/overview',
       method: 'get',
       params: requestParams
     })
