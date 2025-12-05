@@ -4,6 +4,9 @@ import Dashboard from '../views/Dashboard.vue'
 import PriceDiagnosis from '../views/PriceDiagnosis.vue'
 import PriceRecommendations from '../views/PriceRecommendations.vue'
 import ModelMetrics from '../views/ModelMetrics.vue'
+import RatingAnalysis from '../views/RatingAnalysis.vue'
+import SalesAnalysis from '../views/SalesAnalysis.vue'
+import MarketingAnalysis from '../views/MarketingAnalysis.vue'
 
 const routes = [
   {
@@ -30,6 +33,21 @@ const routes = [
     path: '/model-metrics',
     name: 'ModelMetrics',
     component: ModelMetrics
+  },
+  {
+    path: '/rating-analysis',
+    name: 'RatingAnalysis',
+    component: RatingAnalysis
+  },
+  {
+    path: '/sales-analysis',
+    name: 'SalesAnalysis',
+    component: SalesAnalysis
+  },
+  {
+    path: '/marketing-analysis',
+    name: 'MarketingAnalysis',
+    component: MarketingAnalysis
   }
 ]
 

@@ -47,6 +47,25 @@
             </el-menu-item>
           </el-sub-menu>
 
+          <el-sub-menu index="analysis">
+            <template #title>
+              <el-icon><TrendCharts /></el-icon>
+              <span>商品分析</span>
+            </template>
+            <el-menu-item index="/rating-analysis">
+              <el-icon><StarFilled /></el-icon>
+              <span>评分分析</span>
+            </el-menu-item>
+            <el-menu-item index="/sales-analysis">
+              <el-icon><Histogram /></el-icon>
+              <span>销量分析</span>
+            </el-menu-item>
+            <el-menu-item index="/marketing-analysis">
+              <el-icon><Discount /></el-icon>
+              <span>营销分析</span>
+            </el-menu-item>
+          </el-sub-menu>
+
           <el-sub-menu index="model">
             <template #title>
               <el-icon><Setting /></el-icon>
@@ -72,7 +91,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
-  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled 
+  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled, TrendCharts, StarFilled, Histogram, Discount
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

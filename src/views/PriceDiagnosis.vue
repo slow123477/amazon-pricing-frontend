@@ -77,6 +77,14 @@
         </template>
         <el-descriptions :column="2" border>
           <el-descriptions-item label="分类">{{ diagnosisResult.category }}</el-descriptions-item>
+          <el-descriptions-item label="预测来源">
+            <el-tag :type="diagnosisResult.isRealtimePrediction ? 'success' : 'info'">
+              {{ diagnosisResult.isRealtimePrediction ? '实时预测' : '历史均值' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="预测价格" v-if="diagnosisResult.predictedPrice !== undefined">
+            <span style="color: #67C23A; font-weight: 600">${{ diagnosisResult.predictedPrice?.toFixed(2) }}</span>
+          </el-descriptions-item>
           <el-descriptions-item label="平均定价">
             <span style="color: #409EFF; font-weight: 600">${{ diagnosisResult.avgPrice?.toFixed(2) }}</span>
           </el-descriptions-item>
