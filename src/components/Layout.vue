@@ -6,8 +6,22 @@
         <h1 class="title">亚马逊商品价格分析与优化决策系统</h1>
       </div>
       <div class="header-right">
-        <el-button text type="primary">修改密码</el-button>
-        <el-button text type="danger">退出登录</el-button>
+        <el-dropdown trigger="click">
+          <div class="user-box">
+            <el-icon><UserFilled /></el-icon>
+            <span class="user-name">{{ username || '未登录' }}</span>
+            <el-icon class="caret"><ArrowDown /></el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>当前角色：{{ role }}</el-dropdown-item>
+              <el-dropdown-item divided @click="logout">
+                <el-icon><SwitchButton /></el-icon>
+                <span style="margin-left: 6px">退出登录</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </el-header>
 
@@ -32,21 +46,6 @@
             <span>可视化大屏</span>
           </el-menu-item>
 
-          <el-sub-menu index="price">
-            <template #title>
-              <el-icon><Money /></el-icon>
-              <span>价格管理</span>
-            </template>
-            <el-menu-item index="/price-diagnosis">
-              <el-icon><Search /></el-icon>
-              <span>价格诊断</span>
-            </el-menu-item>
-            <el-menu-item index="/price-recommendations">
-              <el-icon><Document /></el-icon>
-              <span>价格推荐</span>
-            </el-menu-item>
-          </el-sub-menu>
-
           <el-sub-menu index="analysis">
             <template #title>
               <el-icon><TrendCharts /></el-icon>
@@ -64,16 +63,54 @@
               <el-icon><Discount /></el-icon>
               <span>营销分析</span>
             </el-menu-item>
+            <el-menu-item index="/category-insights">
+              <el-icon><Histogram /></el-icon>
+              <span>品类洞察</span>
+            </el-menu-item>
+            <el-menu-item index="/benchmark">
+              <el-icon><Search /></el-icon>
+              <span>竞品对标</span>
+            </el-menu-item>
+            <el-menu-item index="/opportunity-monitor">
+              <el-icon><InfoFilled /></el-icon>
+              <span>异常/机会</span>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="price">
+            <template #title>
+              <el-icon><Money /></el-icon>
+              <span>价格管理</span>
+            </template>
+            <el-menu-item index="/price-diagnosis">
+              <el-icon><Search /></el-icon>
+              <span>价格诊断</span>
+            </el-menu-item>
+            <el-menu-item index="/price-recommendations">
+              <el-icon><Document /></el-icon>
+              <span>价格推荐</span>
+            </el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="model">
             <template #title>
-              <el-icon><Setting /></el-icon>
+              <el-icon><DataLine /></el-icon>
               <span>模型管理</span>
             </template>
             <el-menu-item index="/model-metrics">
               <el-icon><InfoFilled /></el-icon>
               <span>模型指标</span>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="admin" v-if="role === 'ADMIN'">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>系统管理</span>
+            </template>
+            <el-menu-item index="/user-manage">
+              <el-icon><InfoFilled /></el-icon>
+              <span>用户管理</span>
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
@@ -88,18 +125,28 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, watch, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { 
-  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled, TrendCharts, StarFilled, Histogram, Discount
+  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled, TrendCharts, StarFilled, Histogram, Discount, UserFilled, ArrowDown, SwitchButton, DataLine
 } from '@element-plus/icons-vue'
+import { useUserStore } from '@/store/user'
 
 const route = useRoute()
+const router = useRouter()
 const activeMenu = ref(route.path)
+const userStore = useUserStore()
+const role = computed(() => userStore.role)
+const username = computed(() => userStore.username)
 
 watch(() => route.path, (newPath) => {
   activeMenu.value = newPath
 }, { immediate: true })
+
+const logout = () => {
+  userStore.logout()
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -124,7 +171,33 @@ watch(() => route.path, (newPath) => {
 
 .header-right {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.caret {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.user-box:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .aside {
@@ -134,6 +207,11 @@ watch(() => route.path, (newPath) => {
 .menu {
   border-right: none;
   height: 100%;
+}
+.user-chip {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
 }
 
 .main {
