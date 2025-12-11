@@ -32,6 +32,29 @@ export const ratingApi = {
       method: 'get',
       params
     })
+  },
+  // 高评分低销量机会榜
+  getHighRatingLowSales(params) {
+    return request({
+      url: '/analysis/rating/opportunity/high',
+      method: 'get',
+      params
+    })
+  },
+  // 低评分高销量机会榜
+  getLowRatingHighSales(params) {
+    return request({
+      url: '/analysis/rating/opportunity/low',
+      method: 'get',
+      params
+    })
+  },
+  // 评分相关性
+  getCorrelation() {
+    return request({
+      url: '/analysis/rating/correlation',
+      method: 'get'
+    })
   }
 }
 

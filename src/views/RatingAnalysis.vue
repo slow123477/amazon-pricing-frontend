@@ -3,20 +3,16 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>评分分析概览</span>
+          <div class="title">评分分析概览</div>
           <el-space :size="12">
             <el-select
               v-model="selectedCategory"
-              placeholder="按分类筛选高评分商品"
+              placeholder="按分类筛选"
               clearable
-              style="width: 220px"
-              @change="loadTopProducts"
+              style="width: 200px"
+              @change="handleFilterChange"
             >
-              <el-option
-                key=""
-                label="全部分类"
-                value=""
-              />
+              <el-option key="" label="全部分类" value="" />
               <el-option
                 v-for="cat in categoryOptions"
                 :key="cat"
@@ -29,6 +25,57 @@
             </el-button>
           </el-space>
         </div>
+        <el-form class="filter-form" label-width="90px" inline @submit.prevent>
+          <el-form-item label="评分区间">
+            <el-slider
+              v-model="ratingRange"
+              range
+              :min="0"
+              :max="5"
+              :step="0.5"
+              style="width: 240px"
+              @change="handleFilterChange"
+            />
+          </el-form-item>
+          <el-form-item label="评论数≥">
+            <el-input-number
+              v-model="minReviews"
+              :min="0"
+              :step="50"
+              style="width: 140px"
+              @change="handleFilterChange"
+            />
+          </el-form-item>
+          <el-form-item label="月销量≥">
+            <el-input-number
+              v-model="minSales"
+              :min="0"
+              :step="20"
+              style="width: 140px"
+              @change="handleFilterChange"
+            />
+          </el-form-item>
+          <el-form-item label="标签筛选">
+            <el-check-tag :checked="flagFilters.bestSeller" @change="toggleFlag('bestSeller')">
+              BestSeller
+            </el-check-tag>
+            <el-check-tag :checked="flagFilters.sponsored" @change="toggleFlag('sponsored')">
+              广告
+            </el-check-tag>
+            <el-check-tag :checked="flagFilters.hasCoupon" @change="toggleFlag('hasCoupon')">
+              优惠券
+            </el-check-tag>
+            <el-check-tag :checked="flagFilters.buyBox" @change="toggleFlag('buyBox')">
+              BuyBox
+            </el-check-tag>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="loadingTop" @click="loadTopProducts">
+              应用筛选
+            </el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </el-form-item>
+        </el-form>
       </template>
       <el-row :gutter="16">
         <el-col :xs="24" :sm="24" :md="12" :lg="8">
@@ -55,7 +102,7 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>高评分商品 TOP50（按评分、评论数排序）</span>
+          <span>高评分商品 TOP 列表（支持筛选）</span>
         </div>
       </template>
       <el-table :data="pagedTopProducts" height="520px" v-loading="loadingTop">
@@ -64,14 +111,23 @@
             {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
           </template>
         </el-table-column>
-        <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="rank" label="原始排名" width="90" />
+        <el-table-column prop="productTitle" label="商品" min-width="220" show-overflow-tooltip />
         <el-table-column prop="productCategory" label="分类" width="140" show-overflow-tooltip />
         <el-table-column prop="productRating" label="评分" width="80" />
         <el-table-column prop="totalReviews" label="评论数" width="100" />
         <el-table-column prop="purchasedLastMonth" label="月销量" width="100" />
-        <el-table-column prop="discountedPrice" label="折后价($)" width="100" />
+        <el-table-column prop="discountedPrice" label="折后价($)" width="90" />
         <el-table-column prop="discountPercentage" label="折扣(%)" width="90" />
+        <el-table-column label="标签" width="160">
+          <template #default="scope">
+            <el-space wrap :size="4">
+              <el-tag v-if="scope.row.isBestSeller" type="success" size="small">BestSeller</el-tag>
+              <el-tag v-if="scope.row.isSponsored" type="warning" size="small">广告</el-tag>
+              <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
+              <el-tag v-if="scope.row.buyBoxAvailability" type="primary" size="small">BuyBox</el-tag>
+            </el-space>
+          </template>
+        </el-table-column>
         <el-table-column label="链接" width="90">
           <template #default="scope">
             <el-link :href="scope.row.productPageUrl" target="_blank" type="primary">查看</el-link>
@@ -86,6 +142,67 @@
           v-model:current-page="currentPage"
         />
       </div>
+    </el-card>
+
+    <el-row :gutter="16" class="section-row">
+      <el-col :xs="24" :sm="24" :md="12">
+        <el-card shadow="hover" class="inner-card tall-card">
+          <template #header>高评分低销量机会榜</template>
+          <el-table :data="highRatingLowSales" height="360px" v-loading="loadingOpportunity">
+            <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="productRating" label="评分" width="80" />
+            <el-table-column prop="purchasedLastMonth" label="月销量" width="90" />
+            <el-table-column prop="totalReviews" label="评论数" width="90" />
+            <el-table-column label="标签" width="120">
+              <template #default="scope">
+                <el-space wrap :size="4">
+                  <el-tag v-if="scope.row.isBestSeller" type="success" size="small">Best</el-tag>
+                  <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
+                </el-space>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12">
+        <el-card shadow="hover" class="inner-card tall-card">
+          <template #header>低评分高销量异常榜</template>
+          <el-table :data="lowRatingHighSales" height="360px" v-loading="loadingOpportunity">
+            <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="productRating" label="评分" width="80" />
+            <el-table-column prop="purchasedLastMonth" label="月销量" width="90" />
+            <el-table-column prop="totalReviews" label="评论数" width="90" />
+            <el-table-column label="标签" width="120">
+              <template #default="scope">
+                <el-space wrap :size="4">
+                  <el-tag v-if="scope.row.isSponsored" type="warning" size="small">广告</el-tag>
+                  <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
+                </el-space>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-card shadow="hover" class="section-card">
+      <template #header>评分相关性（按分类）</template>
+      <el-table :data="ratingCorrelation" height="320px" v-loading="loadingCorrelation">
+        <el-table-column prop="productCategory" label="分类" min-width="160" />
+        <el-table-column prop="corrRatingSales" label="评分-销量相关系数" width="180">
+          <template #default="scope">{{ formatCorr(scope.row.corrRatingSales) }}</template>
+        </el-table-column>
+        <el-table-column prop="corrRatingPrice" label="评分-价格相关系数" width="180">
+          <template #default="scope">{{ formatCorr(scope.row.corrRatingPrice) }}</template>
+        </el-table-column>
+        <el-table-column prop="sampleSize" label="样本量" width="120" />
+        <el-table-column prop="avgRating" label="均值(评分)" width="120">
+          <template #default="scope">{{ formatNumber(scope.row.avgRating) }}</template>
+        </el-table-column>
+        <el-table-column prop="avgMonthlySales" label="均值(销量)" width="120">
+          <template #default="scope">{{ formatNumber(scope.row.avgMonthlySales) }}</template>
+        </el-table-column>
+      </el-table>
     </el-card>
   </div>
 </template>
@@ -113,20 +230,29 @@ const selectedCategory = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+const ratingRange = ref([3.5, 5])
+const minReviews = ref(50)
+const minSales = ref(0)
+const flagFilters = ref({
+  bestSeller: false,
+  sponsored: false,
+  hasCoupon: false,
+  buyBox: false
+})
+
+const highRatingLowSales = ref([])
+const lowRatingHighSales = ref([])
+const ratingCorrelation = ref([])
+
 const loading = ref(false)
 const loadingTop = ref(false)
-
-const filteredTopProducts = computed(() => {
-  if (!selectedCategory.value) return topProducts.value
-  return topProducts.value.filter(
-    item => item.productCategory === selectedCategory.value
-  )
-})
+const loadingOpportunity = ref(false)
+const loadingCorrelation = ref(false)
 
 const pagedTopProducts = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return filteredTopProducts.value.slice(start, end)
+  return topProducts.value.slice(start, end)
 })
 
 const disposeCharts = () => {
@@ -256,9 +382,18 @@ const loadPriceRelation = () => ratingApi.getPriceRelation().then(res => { price
 const loadTopProducts = async () => {
   loadingTop.value = true
   try {
-    const res = await ratingApi.getTopProducts({
-      category: selectedCategory.value || undefined
-    })
+    const params = {
+      category: selectedCategory.value || undefined,
+      minRating: ratingRange.value?.[0],
+      maxRating: ratingRange.value?.[1],
+      minReviews: minReviews.value,
+      minSales: minSales.value,
+      isBestSeller: flagFilters.value.bestSeller || undefined,
+      isSponsored: flagFilters.value.sponsored || undefined,
+      hasCoupon: flagFilters.value.hasCoupon || undefined,
+      buyBox: flagFilters.value.buyBox ? 'True' : undefined
+    }
+    const res = await ratingApi.getTopProducts(params)
     topProducts.value = res || []
     const cats = Array.from(new Set((res || []).map(i => i.productCategory))).filter(Boolean)
     if (!categoryOptions.value.length && cats.length) {
@@ -273,13 +408,44 @@ const loadTopProducts = async () => {
   }
 }
 
+const loadOpportunities = async () => {
+  loadingOpportunity.value = true
+  try {
+    const params = { category: selectedCategory.value || undefined }
+    const [high, low] = await Promise.all([
+      ratingApi.getHighRatingLowSales(params),
+      ratingApi.getLowRatingHighSales(params)
+    ])
+    highRatingLowSales.value = high || []
+    lowRatingHighSales.value = low || []
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('加载机会榜失败')
+  } finally {
+    loadingOpportunity.value = false
+  }
+}
+
+const loadCorrelation = async () => {
+  loadingCorrelation.value = true
+  try {
+    const data = await ratingApi.getCorrelation()
+    ratingCorrelation.value = data || []
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('加载相关性数据失败')
+  } finally {
+    loadingCorrelation.value = false
+  }
+}
+
 const loadAll = async () => {
   loading.value = true
   try {
-    await Promise.all([loadDistribution(), loadSalesRelation(), loadPriceRelation(), loadCategories()])
+    await Promise.all([loadDistribution(), loadSalesRelation(), loadPriceRelation(), loadCategories(), loadCorrelation()])
     await nextTick()
     renderCharts()
-    await loadTopProducts()
+    await Promise.all([loadTopProducts(), loadOpportunities()])
     ElMessage.success('评分分析数据已更新')
   } catch (e) {
     console.error(e)
@@ -298,6 +464,41 @@ const loadCategories = async () => {
   } catch (e) {
     console.error(e)
   }
+}
+
+const resetFilters = () => {
+  ratingRange.value = [3.5, 5]
+  minReviews.value = 50
+  minSales.value = 0
+  flagFilters.value = {
+    bestSeller: false,
+    sponsored: false,
+    hasCoupon: false,
+    buyBox: false
+  }
+  selectedCategory.value = ''
+  handleFilterChange()
+}
+
+const toggleFlag = key => {
+  flagFilters.value[key] = !flagFilters.value[key]
+  handleFilterChange()
+}
+
+const handleFilterChange = () => {
+  currentPage.value = 1
+  loadTopProducts()
+  loadOpportunities()
+}
+
+const formatCorr = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  return Number(val).toFixed(3)
+}
+
+const formatNumber = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  return Number(val).toFixed(2)
 }
 
 onMounted(async () => {
@@ -325,8 +526,20 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
 }
+.filter-bar {
+  margin-top: 8px;
+}
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
 .inner-card {
   margin-bottom: 12px;
+}
+.tall-card .el-table {
+  --el-table-header-bg-color: #fafafa;
 }
 .chart {
   width: 100%;
