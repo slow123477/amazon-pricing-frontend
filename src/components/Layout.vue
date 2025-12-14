@@ -3,7 +3,7 @@
     <!-- 顶部导航栏 -->
     <el-header class="header">
       <div class="header-left">
-        <h1 class="title">亚马逊商品价格分析与优化决策系统</h1>
+        <h1 class="title">亚马逊商品分析与决策系统</h1>
       </div>
       <div class="header-right">
         <el-dropdown trigger="click">
@@ -80,7 +80,7 @@
           <el-sub-menu index="price">
             <template #title>
               <el-icon><Money /></el-icon>
-              <span>价格管理</span>
+              <span>决策中心</span>
             </template>
             <el-menu-item index="/price-diagnosis">
               <el-icon><Search /></el-icon>
