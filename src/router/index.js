@@ -10,6 +10,7 @@ import MarketingAnalysis from '../views/MarketingAnalysis.vue'
 import CategoryInsights from '../views/CategoryInsights.vue'
 import Benchmark from '../views/Benchmark.vue'
 import OpportunityMonitor from '../views/OpportunityMonitor.vue'
+import DecisionCenter from '../views/DecisionCenter.vue'
 import Login from '../views/Login.vue'
 import UserManage from '../views/UserManage.vue'
 
@@ -78,6 +79,11 @@ const routes = [
     path: '/user-manage',
     name: 'UserManage',
     component: UserManage
+  },
+  {
+    path: '/decision-center',
+    name: 'DecisionCenter',
+    component: DecisionCenter
   }
 ]
 

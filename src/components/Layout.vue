@@ -31,7 +31,7 @@
         <el-menu
           :default-active="activeMenu"
           class="menu"
-          router
+          :router="true"
           background-color="#304156"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
@@ -82,6 +82,10 @@
               <el-icon><Money /></el-icon>
               <span>决策中心</span>
             </template>
+            <el-menu-item index="/decision-center">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>决策中心</span>
+            </el-menu-item>
             <el-menu-item index="/price-diagnosis">
               <el-icon><Search /></el-icon>
               <span>价格诊断</span>
@@ -128,20 +132,20 @@
 import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
-  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled, TrendCharts, StarFilled, Histogram, Discount, UserFilled, ArrowDown, SwitchButton, DataLine
+  HomeFilled, Monitor, Money, Search, Document, Setting, InfoFilled, TrendCharts, StarFilled, Histogram, Discount, UserFilled, ArrowDown, SwitchButton, DataLine, DataAnalysis
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 
 const route = useRoute()
 const router = useRouter()
-const activeMenu = ref(route.path)
 const userStore = useUserStore()
 const role = computed(() => userStore.role)
 const username = computed(() => userStore.username)
 
-watch(() => route.path, (newPath) => {
-  activeMenu.value = newPath
-}, { immediate: true })
+// 使用 computed 来动态计算激活的菜单项
+const activeMenu = computed(() => {
+  return route.path
+})
 
 const logout = () => {
   userStore.logout()
