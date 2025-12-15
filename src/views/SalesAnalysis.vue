@@ -1,29 +1,62 @@
 <template>
   <div class="page sales-analysis">
+    <!-- 顶部关键统计指标卡片 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">全站总月销量</div>
+            <div class="stat-value" style="color: #67C23A">
+              {{ formatNumber(stats.totalSales) }}
+            </div>
+            <div class="stat-desc">最近一个月所有商品的总销量</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">单品平均月销量</div>
+            <div class="stat-value" style="color: #409EFF">
+              {{ formatNumber(stats.avgSalesPerProduct) }}
+            </div>
+            <div class="stat-desc">总销量 / 商品数</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">最畅销品类月销量</div>
+            <div class="stat-value" style="color: #E6A23C">
+              {{ formatNumber(stats.topCategorySales) }}
+            </div>
+            <div class="stat-desc">
+              最畅销品类：{{ stats.topCategory || '--' }}
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">有优惠券商品占比</div>
+            <div class="stat-value" style="color: #F56C6C">
+              {{ formatPercent(stats.couponRatio) }}
+            </div>
+            <div class="stat-desc">按各品类平均销量加权计算</div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
           <span>销量分析概览</span>
-          <el-space :size="12">
-            <el-select
-              v-model="selectedCategory"
-              placeholder="按分类筛选畅销榜"
-              clearable
-              style="width: 220px"
-              @change="handleCategoryChange"
-            >
-              <el-option key="" label="全部分类" value="" />
-              <el-option
-                v-for="cat in categoryOptions"
-                :key="cat"
-                :label="cat"
-                :value="cat"
-              />
-            </el-select>
-            <el-button type="primary" :loading="loading" @click="loadAll">
-              重新加载
-            </el-button>
-          </el-space>
+          <el-button type="primary" :loading="loading" @click="loadAll">
+            重新加载
+          </el-button>
         </div>
       </template>
       <el-row :gutter="16">
@@ -87,7 +120,7 @@
       <div class="table-pagination">
         <el-pagination
           layout="prev, pager, next"
-          :total="filteredBestSellers.length"
+          :total="bestSellers.length"
           :page-size="pageSize"
           v-model:current-page="currentPage"
         />
@@ -100,7 +133,6 @@
 import { ref, onMounted, nextTick, onBeforeUnmount, computed } from 'vue'
 import * as echarts from 'echarts'
 import { salesApi } from '@/api/sales'
-import { categoryApi } from '@/api/category'
 import { ElMessage } from 'element-plus'
 
 const categoryChart = ref(null)
@@ -114,25 +146,25 @@ const categoryStats = ref([])
 const salesFactors = ref([])
 const salesRanking = ref([])
 const bestSellers = ref([])
-const categoryOptions = ref([])
-const selectedCategory = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
+
+// 顶部统计指标
+const stats = ref({
+  totalSales: null,          // 全站总月销量
+  avgSalesPerProduct: null,  // 单品平均月销量
+  topCategory: null,         // 最畅销品类名称
+  topCategorySales: null,    // 最畅销品类月销量
+  couponRatio: null          // 有优惠券商品占比（加权）
+})
 
 const loading = ref(false)
 const loadingBest = ref(false)
 
-const filteredBestSellers = computed(() => {
-  if (!selectedCategory.value) return bestSellers.value
-  return bestSellers.value.filter(
-    item => item.productCategory === selectedCategory.value
-  )
-})
-
 const pagedBestSellers = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return filteredBestSellers.value.slice(start, end)
+  return bestSellers.value.slice(start, end)
 })
 
 const disposeCharts = () => {
@@ -245,14 +277,8 @@ const loadSalesRanking = () => salesApi.getSalesRanking().then(res => { salesRan
 const loadBestSellers = async () => {
   loadingBest.value = true
   try {
-    const res = await salesApi.getBestSellers({
-      category: selectedCategory.value || undefined
-    })
+    const res = await salesApi.getBestSellers()
     bestSellers.value = res || []
-    const cats = Array.from(new Set((res || []).map(i => i.productCategory))).filter(Boolean)
-    if (!categoryOptions.value.length && cats.length) {
-      categoryOptions.value = cats
-    }
     currentPage.value = 1
   } catch (e) {
     console.error(e)
@@ -262,15 +288,62 @@ const loadBestSellers = async () => {
   }
 }
 
-const loadCategories = async () => {
-  try {
-    const data = await categoryApi.getCategoryStats()
-    if (data && Array.isArray(data)) {
-      categoryOptions.value = data.map(item => item.productCategory)
-    }
-  } catch (e) {
-    console.error(e)
+const loadCategories = async () => {}
+
+// 计算统计指标
+const calculateStats = () => {
+  // 1. 基于分类统计计算总销量、单品平均销量、最畅销品类
+  if (categoryStats.value && categoryStats.value.length > 0) {
+    let totalSales = 0
+    let totalProducts = 0
+    let topCategory = null
+    let topCategorySales = 0
+
+    categoryStats.value.forEach(item => {
+      const sales = item.totalSales || 0
+      const count = item.productCount || 0
+      totalSales += sales
+      totalProducts += count
+      if (sales > topCategorySales) {
+        topCategorySales = sales
+        topCategory = item.productCategory || null
+      }
+    })
+
+    stats.value.totalSales = totalSales
+    stats.value.avgSalesPerProduct = totalProducts > 0 ? totalSales / totalProducts : null
+    stats.value.topCategory = topCategory
+    stats.value.topCategorySales = topCategorySales
   }
+
+  // 2. 基于销量影响因素计算“有优惠券商品占比”（按平均销量加权）
+  if (salesFactors.value && salesFactors.value.length > 0) {
+    let totalWeight = 0
+    let weightedCoupon = 0
+
+    salesFactors.value.forEach(item => {
+      const weight = item.avgSales || 0
+      const ratioCoupon = item.ratioCoupon || 0
+      if (weight > 0) {
+        totalWeight += weight
+        weightedCoupon += ratioCoupon * weight
+      }
+    })
+
+    stats.value.couponRatio = totalWeight > 0 ? weightedCoupon / totalWeight : null
+  }
+}
+
+// 数值格式化
+const formatNumber = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  return Number(val).toFixed(0)
+}
+
+// 百分比格式化
+const formatPercent = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  return (Number(val) * 100).toFixed(1) + '%'
 }
 
 const loadAll = async () => {
@@ -283,6 +356,7 @@ const loadAll = async () => {
       loadCategories()
     ])
     await nextTick()
+    calculateStats()
     renderCharts()
     await loadBestSellers()
     ElMessage.success('销量分析数据已更新')
@@ -292,10 +366,6 @@ const loadAll = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleCategoryChange = async () => {
-  await loadBestSellers()
 }
 
 onMounted(async () => {
@@ -315,6 +385,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 16px;
 }
+.stats-row {
+  margin-bottom: 16px;
+}
 .section-card {
   width: 100%;
 }
@@ -325,6 +398,35 @@ onBeforeUnmount(() => {
 }
 .inner-card {
   margin-bottom: 12px;
+}
+.stat-card {
+  height: 100%;
+  transition: all 0.3s;
+}
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.stat-content {
+  padding: 8px 0;
+  text-align: center;
+}
+.stat-label {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+.stat-desc {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 .chart {
   width: 100%;

@@ -1,206 +1,136 @@
 <template>
   <div class="page rating-analysis">
-    <el-card shadow="hover" class="section-card">
-      <template #header>
-        <div class="card-header">
-          <div class="title">评分分析概览</div>
-          <el-space :size="12">
-            <el-select
-              v-model="selectedCategory"
-              placeholder="按分类筛选"
-              clearable
-              style="width: 200px"
-              @change="handleFilterChange"
-            >
-              <el-option key="" label="全部分类" value="" />
-              <el-option
-                v-for="cat in categoryOptions"
-                :key="cat"
-                :label="cat"
-                :value="cat"
-              />
-            </el-select>
-            <el-button type="primary" :loading="loading" @click="loadAll">
-              重新加载
-            </el-button>
-          </el-space>
-        </div>
-        <el-form class="filter-form" label-width="90px" inline @submit.prevent>
-          <el-form-item label="评分区间">
-            <el-slider
-              v-model="ratingRange"
-              range
-              :min="0"
-              :max="5"
-              :step="0.5"
-              style="width: 240px"
-              @change="handleFilterChange"
-            />
-          </el-form-item>
-          <el-form-item label="评论数≥">
-            <el-input-number
-              v-model="minReviews"
-              :min="0"
-              :step="50"
-              style="width: 140px"
-              @change="handleFilterChange"
-            />
-          </el-form-item>
-          <el-form-item label="月销量≥">
-            <el-input-number
-              v-model="minSales"
-              :min="0"
-              :step="20"
-              style="width: 140px"
-              @change="handleFilterChange"
-            />
-          </el-form-item>
-          <el-form-item label="标签筛选">
-            <el-check-tag :checked="flagFilters.bestSeller" @change="toggleFlag('bestSeller')">
-              BestSeller
-            </el-check-tag>
-            <el-check-tag :checked="flagFilters.sponsored" @change="toggleFlag('sponsored')">
-              广告
-            </el-check-tag>
-            <el-check-tag :checked="flagFilters.hasCoupon" @change="toggleFlag('hasCoupon')">
-              优惠券
-            </el-check-tag>
-            <el-check-tag :checked="flagFilters.buyBox" @change="toggleFlag('buyBox')">
-              BuyBox
-            </el-check-tag>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="loadingTop" @click="loadTopProducts">
-              应用筛选
-            </el-button>
-            <el-button @click="resetFilters">重置</el-button>
-          </el-form-item>
-        </el-form>
-      </template>
-      <el-row :gutter="16">
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
-          <el-card shadow="never" class="inner-card">
-            <template #header>评分分布</template>
-            <div ref="distributionChart" class="chart"></div>
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
-          <el-card shadow="never" class="inner-card">
-            <template #header>评分-销量关系</template>
-            <div ref="salesChart" class="chart"></div>
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
-          <el-card shadow="never" class="inner-card">
-            <template #header>评分-价格关系</template>
-            <div ref="priceChart" class="chart"></div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </el-card>
-
-    <el-card shadow="hover" class="section-card">
-      <template #header>
-        <div class="card-header">
-          <span>高评分商品 TOP 列表（支持筛选）</span>
-        </div>
-      </template>
-      <el-table :data="pagedTopProducts" height="520px" v-loading="loadingTop">
-        <el-table-column label="#" width="60">
-          <template #default="scope">
-            {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="productTitle" label="商品" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="productCategory" label="分类" width="140" show-overflow-tooltip />
-        <el-table-column prop="productRating" label="评分" width="80" />
-        <el-table-column prop="totalReviews" label="评论数" width="100" />
-        <el-table-column prop="purchasedLastMonth" label="月销量" width="100" />
-        <el-table-column prop="discountedPrice" label="折后价($)" width="90" />
-        <el-table-column prop="discountPercentage" label="折扣(%)" width="90" />
-        <el-table-column label="标签" width="160">
-          <template #default="scope">
-            <el-space wrap :size="4">
-              <el-tag v-if="scope.row.isBestSeller" type="success" size="small">BestSeller</el-tag>
-              <el-tag v-if="scope.row.isSponsored" type="warning" size="small">广告</el-tag>
-              <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
-              <el-tag v-if="scope.row.buyBoxAvailability" type="primary" size="small">BuyBox</el-tag>
-            </el-space>
-          </template>
-        </el-table-column>
-        <el-table-column label="链接" width="90">
-          <template #default="scope">
-            <el-link :href="scope.row.productPageUrl" target="_blank" type="primary">查看</el-link>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="table-pagination">
-        <el-pagination
-          layout="prev, pager, next"
-          :total="topProducts.length"
-          :page-size="pageSize"
-          v-model:current-page="currentPage"
-        />
-      </div>
-    </el-card>
-
-    <el-row :gutter="16" class="section-row">
-      <el-col :xs="24" :sm="24" :md="12">
-        <el-card shadow="hover" class="inner-card tall-card">
-          <template #header>高评分低销量机会榜</template>
-          <el-table :data="highRatingLowSales" height="360px" v-loading="loadingOpportunity">
-            <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="productRating" label="评分" width="80" />
-            <el-table-column prop="purchasedLastMonth" label="月销量" width="90" />
-            <el-table-column prop="totalReviews" label="评论数" width="90" />
-            <el-table-column label="标签" width="120">
-              <template #default="scope">
-                <el-space wrap :size="4">
-                  <el-tag v-if="scope.row.isBestSeller" type="success" size="small">Best</el-tag>
-                  <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
-                </el-space>
-              </template>
-            </el-table-column>
-          </el-table>
+    <!-- 顶部关键统计指标卡片 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">评分-销量相关系数</div>
+            <div class="stat-value" :style="{ color: getCorrelationColor(stats.ratingSalesCorr) }">
+              {{ formatCorrelation(stats.ratingSalesCorr) }}
+            </div>
+            <div class="stat-desc">整体相关性分析</div>
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="12">
-        <el-card shadow="hover" class="inner-card tall-card">
-          <template #header>低评分高销量异常榜</template>
-          <el-table :data="lowRatingHighSales" height="360px" v-loading="loadingOpportunity">
-            <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="productRating" label="评分" width="80" />
-            <el-table-column prop="purchasedLastMonth" label="月销量" width="90" />
-            <el-table-column prop="totalReviews" label="评论数" width="90" />
-            <el-table-column label="标签" width="120">
-              <template #default="scope">
-                <el-space wrap :size="4">
-                  <el-tag v-if="scope.row.isSponsored" type="warning" size="small">广告</el-tag>
-                  <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
-                </el-space>
-              </template>
-            </el-table-column>
-          </el-table>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">评分-价格相关系数</div>
+            <div class="stat-value" :style="{ color: getCorrelationColor(stats.ratingPriceCorr) }">
+              {{ formatCorrelation(stats.ratingPriceCorr) }}
+            </div>
+            <div class="stat-desc">整体相关性分析</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">高评分商品平均销量</div>
+            <div class="stat-value" style="color: #67C23A">
+              {{ formatNumber(stats.highRatingAvgSales) }}
+            </div>
+            <div class="stat-desc">vs 低评分: {{ formatNumber(stats.lowRatingAvgSales) }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-content">
+            <div class="stat-label">高评分商品占比</div>
+            <div class="stat-value" style="color: #409EFF">
+              {{ formatPercent(stats.highRatingRatio) }}
+            </div>
+            <div class="stat-desc">评分≥4.5的商品占比</div>
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
+    <!-- 顶部筛选卡片暂时移除，只保留下方核心图表和机会榜 -->
+
+    <!-- 核心分析图表：评分对销量和价格的影响分析 -->
+    <el-row :gutter="16">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12">
+        <el-card shadow="hover" class="section-card">
+          <template #header>
+            <div class="chart-header">
+              <div>
+                <span class="chart-title">评分对销量的影响分析</span>
+                <span class="chart-desc">分析不同评分区间对商品销量的影响，通过散点图和趋势线展示评分与销量的关系</span>
+              </div>
+            </div>
+          </template>
+          <div ref="salesChart" class="medium-chart"></div>
+          <div class="chart-insight" v-if="salesRelation && salesRelation.length > 0">
+            <el-alert
+              :title="getSalesInsight()"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12">
+        <el-card shadow="hover" class="section-card">
+          <template #header>
+            <div class="chart-header">
+              <div>
+                <span class="chart-title">评分对价格的影响分析</span>
+                <span class="chart-desc">分析不同评分区间对商品价格的影响，展示评分与折后价、原价的关系</span>
+              </div>
+            </div>
+          </template>
+          <div ref="priceChart" class="medium-chart"></div>
+          <div class="chart-insight" v-if="priceRelation && priceRelation.length > 0">
+            <el-alert
+              :title="getPriceInsight()"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 核心分析图表3：评分对收益的综合影响分析（柱状图 + 饼图） -->
     <el-card shadow="hover" class="section-card">
-      <template #header>评分相关性（按分类）</template>
-      <el-table :data="ratingCorrelation" height="320px" v-loading="loadingCorrelation">
-        <el-table-column prop="productCategory" label="分类" min-width="160" />
-        <el-table-column prop="corrRatingSales" label="评分-销量相关系数" width="180">
-          <template #default="scope">{{ formatCorr(scope.row.corrRatingSales) }}</template>
-        </el-table-column>
-        <el-table-column prop="corrRatingPrice" label="评分-价格相关系数" width="180">
-          <template #default="scope">{{ formatCorr(scope.row.corrRatingPrice) }}</template>
-        </el-table-column>
-        <el-table-column prop="sampleSize" label="样本量" width="120" />
-        <el-table-column prop="avgRating" label="均值(评分)" width="120">
-          <template #default="scope">{{ formatNumber(scope.row.avgRating) }}</template>
-        </el-table-column>
-        <el-table-column prop="avgMonthlySales" label="均值(销量)" width="120">
-          <template #default="scope">{{ formatNumber(scope.row.avgMonthlySales) }}</template>
+      <template #header>
+        <div class="chart-header">
+          <div>
+            <span class="chart-title">评分对收益的综合影响分析</span>
+            <span class="chart-desc">左侧柱状图展示不同评分区间的平均收益，右侧饼图展示各评分区间对总收益的贡献占比</span>
+          </div>
+        </div>
+      </template>
+      <div ref="revenueChart" class="large-chart"></div>
+      <div class="chart-insight" v-if="revenueHeatmapData && revenueHeatmapData.length > 0">
+        <el-alert
+          :title="getRevenueInsight()"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </div>
+    </el-card>
+
+    <el-card shadow="hover" class="section-card">
+      <template #header>高评分低销量机会榜</template>
+      <el-table :data="highRatingLowSales" height="360px" v-loading="loadingOpportunity">
+        <el-table-column prop="productTitle" label="商品" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="productRating" label="评分" width="80" />
+        <el-table-column prop="purchasedLastMonth" label="月销量" width="90" />
+        <el-table-column prop="totalReviews" label="评论数" width="90" />
+        <el-table-column label="标签" width="120">
+          <template #default="scope">
+            <el-space wrap :size="4">
+              <el-tag v-if="scope.row.isBestSeller" type="success" size="small">Best</el-tag>
+              <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
+            </el-space>
+          </template>
         </el-table-column>
       </el-table>
     </el-card>
@@ -211,55 +141,47 @@
 import { ref, onMounted, nextTick, onBeforeUnmount, computed } from 'vue'
 import * as echarts from 'echarts'
 import { ratingApi } from '@/api/rating'
-import { categoryApi } from '@/api/category'
 import { ElMessage } from 'element-plus'
 
 const distributionChart = ref(null)
 const salesChart = ref(null)
 const priceChart = ref(null)
+const revenueChart = ref(null)
 let distributionInstance = null
 let salesInstance = null
 let priceInstance = null
+let revenueInstance = null
 
 const distribution = ref([])
 const salesRelation = ref([])
 const priceRelation = ref([])
-const topProducts = ref([])
-const categoryOptions = ref([])
-const selectedCategory = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-
-const ratingRange = ref([3.5, 5])
-const minReviews = ref(50)
-const minSales = ref(0)
-const flagFilters = ref({
-  bestSeller: false,
-  sponsored: false,
-  hasCoupon: false,
-  buyBox: false
-})
-
+const revenueHeatmapData = ref([]) // 收益热力图数据
 const highRatingLowSales = ref([])
-const lowRatingHighSales = ref([])
 const ratingCorrelation = ref([])
 
+// 顶部统计指标
+const stats = ref({
+  ratingSalesCorr: null,      // 评分-销量相关系数（整体）
+  ratingPriceCorr: null,      // 评分-价格相关系数（整体）
+  highRatingAvgSales: null,   // 高评分商品平均销量（≥4.5）
+  lowRatingAvgSales: null,    // 低评分商品平均销量（<4.0）
+  highRatingRatio: null       // 高评分商品占比
+})
+
 const loading = ref(false)
-const loadingTop = ref(false)
 const loadingOpportunity = ref(false)
 const loadingCorrelation = ref(false)
 
-const pagedTopProducts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return topProducts.value.slice(start, end)
-})
-
 const disposeCharts = () => {
-  if (distributionInstance) distributionInstance.dispose()
   if (salesInstance) salesInstance.dispose()
   if (priceInstance) priceInstance.dispose()
-  distributionInstance = salesInstance = priceInstance = null
+  if (revenueInstance) revenueInstance.dispose()
+  // 暂时移除其他图表实例
+  // if (distributionInstance) distributionInstance.dispose()
+  salesInstance = null
+  priceInstance = null
+  revenueInstance = null
+  // distributionInstance = null
 }
 
 const renderDistribution = () => {
@@ -299,125 +221,710 @@ const renderSalesRelation = () => {
   if (!salesRelation.value.length || !salesChart.value) return
   if (salesInstance) salesInstance.dispose()
   salesInstance = echarts.init(salesChart.value)
-  const xLabels = salesRelation.value.map(i => i.ratingBucketLabel)
+  
+  // 准备数据：评分作为X轴，销量作为Y轴
+  const data = salesRelation.value.map(item => {
+    const ratingBucket = item.ratingBucket || 0
+    const avgSales = item.avgMonthlySales || 0
+    const productCount = item.productCount || 0
+    return [ratingBucket, avgSales, productCount] // [评分, 销量, 商品数（用于气泡大小）]
+  })
+  
+  // 计算趋势线（线性回归）
+  const trendLine = calculateTrendLine(data)
+  
+  // 找出关键数据点
+  const maxSalesPoint = data.reduce((max, point) => point[1] > max[1] ? point : max, data[0])
+  const minSalesPoint = data.reduce((min, point) => point[1] < min[1] ? point : min, data[0])
+  
   salesInstance.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['平均销量', '平均折后价'] },
-    xAxis: { type: 'category', data: xLabels },
-    yAxis: [
-      { type: 'value', name: '销量' },
-      { type: 'value', name: '折后价($)', position: 'right' }
-    ],
+    title: {
+      text: '评分与销量的关系分析',
+      left: 'center',
+      top: 10,
+      textStyle: {
+        fontSize: 16,
+        fontWeight: 'bold'
+      }
+    },
+    tooltip: {
+      trigger: 'item',
+      formatter: (params) => {
+        if (params.seriesName === '散点数据') {
+          const point = data[params.dataIndex]
+          return [
+            `评分区间：${point[0].toFixed(1)}分`,
+            `平均销量：${point[1].toFixed(0)}`,
+            `商品数量：${point[2]}`
+          ].join('<br/>')
+        } else if (params.seriesName === '趋势线') {
+          return `趋势线：评分 ${params.value[0].toFixed(1)}分 → 销量 ${params.value[1].toFixed(0)}`
+        }
+        return ''
+      }
+    },
+    legend: {
+      data: ['散点数据', '趋势线', '关键点'],
+      bottom: 10
+    },
+    xAxis: {
+      type: 'value',
+      name: '评分',
+      nameLocation: 'middle',
+      nameGap: 30,
+      min: 0,
+      max: 5,
+      splitLine: {
+        show: true,
+        lineStyle: { type: 'dashed' }
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '平均销量',
+      nameLocation: 'middle',
+      nameGap: 50,
+      splitLine: {
+        show: true,
+        lineStyle: { type: 'dashed' }
+      }
+    },
     series: [
       {
-        name: '平均销量',
-        type: 'line',
-        data: salesRelation.value.map(i => (i.avgMonthlySales || 0).toFixed(2)),
-        smooth: true,
-        itemStyle: { color: '#409EFF' }
+        name: '散点数据',
+        type: 'scatter',
+        data: data.map((point, index) => ({
+          value: [point[0], point[1]],
+          symbolSize: Math.max(20, Math.min(60, point[2] / 100)), // 根据商品数调整大小
+          itemStyle: {
+            color: '#409EFF',
+            opacity: 0.7
+          }
+        })),
+        emphasis: {
+          itemStyle: {
+            borderColor: '#409EFF',
+            borderWidth: 2
+          }
+        }
       },
       {
-        name: '平均折后价',
+        name: '趋势线',
         type: 'line',
-        yAxisIndex: 1,
-        data: salesRelation.value.map(i => (i.avgDiscountedPrice || 0).toFixed(2)),
+        data: trendLine,
         smooth: true,
-        itemStyle: { color: '#E6A23C' }
+        lineStyle: {
+          color: '#67C23A',
+          width: 3,
+          type: 'dashed'
+        },
+        symbol: 'none',
+        tooltip: {
+          show: true
+        }
+      },
+      {
+        name: '关键点',
+        type: 'scatter',
+        data: [
+          {
+            value: [maxSalesPoint[0], maxSalesPoint[1]],
+            symbol: 'pin',
+            symbolSize: 50,
+            itemStyle: { color: '#67C23A' },
+            label: {
+              show: true,
+              formatter: '最高销量',
+              position: 'top',
+              color: '#67C23A',
+              fontWeight: 'bold'
+            }
+          },
+          {
+            value: [minSalesPoint[0], minSalesPoint[1]],
+            symbol: 'pin',
+            symbolSize: 50,
+            itemStyle: { color: '#F56C6C' },
+            label: {
+              show: true,
+              formatter: '最低销量',
+              position: 'bottom',
+              color: '#F56C6C',
+              fontWeight: 'bold'
+            }
+          }
+        ]
       }
     ],
-    grid: { left: 60, right: 60, top: 40, bottom: 40 }
+    grid: {
+      left: '10%',
+      right: '10%',
+      top: '15%',
+      bottom: '15%',
+      containLabel: true
+    }
   })
+}
+
+// 计算趋势线（简单线性回归）
+const calculateTrendLine = (data) => {
+  if (!data || data.length === 0) return []
+  
+  // 计算线性回归
+  const n = data.length
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0
+  
+  data.forEach(point => {
+    const x = point[0]
+    const y = point[1]
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumX2 += x * x
+  })
+  
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+  const intercept = (sumY - slope * sumX) / n
+  
+  // 生成趋势线上的点
+  const minX = Math.min(...data.map(p => p[0]))
+  const maxX = Math.max(...data.map(p => p[0]))
+  const trendPoints = []
+  
+  for (let x = minX; x <= maxX; x += 0.1) {
+    const y = slope * x + intercept
+    trendPoints.push([x, y])
+  }
+  
+  return trendPoints
+}
+
+// 获取销量分析洞察
+const getSalesInsight = () => {
+  if (!salesRelation.value || salesRelation.value.length === 0) return ''
+  
+  const data = salesRelation.value.map(item => ({
+    rating: item.ratingBucket || 0,
+    sales: item.avgMonthlySales || 0
+  }))
+  
+  // 找出高评分和低评分的平均销量
+  const highRating = data.filter(d => d.rating >= 4.5)
+  const lowRating = data.filter(d => d.rating < 4.0)
+  
+  const highAvg = highRating.length > 0 
+    ? highRating.reduce((sum, d) => sum + d.sales, 0) / highRating.length 
+    : 0
+  const lowAvg = lowRating.length > 0 
+    ? lowRating.reduce((sum, d) => sum + d.sales, 0) / lowRating.length 
+    : 0
+  
+  const ratio = lowAvg > 0 ? (highAvg / lowAvg).toFixed(2) : '--'
+  
+  // 找出销量最高的评分区间
+  const maxSalesData = data.reduce((max, d) => d.sales > max.sales ? d : max, data[0])
+  
+  let insight = `分析发现：`
+  if (highAvg > 0 && lowAvg > 0) {
+    insight += `高评分商品（≥4.5分）平均销量为 ${highAvg.toFixed(0)}，`
+    insight += `低评分商品（<4.0分）平均销量为 ${lowAvg.toFixed(0)}，`
+    insight += `高评分商品销量是低评分的 ${ratio} 倍。`
+  }
+  insight += `销量最高的评分区间为 ${maxSalesData.rating.toFixed(1)} 分，平均销量 ${maxSalesData.sales.toFixed(0)}。`
+  
+  return insight
 }
 
 const renderPriceRelation = () => {
   if (!priceRelation.value.length || !priceChart.value) return
   if (priceInstance) priceInstance.dispose()
   priceInstance = echarts.init(priceChart.value)
-  const xLabels = priceRelation.value.map(i => i.ratingBucketLabel)
+  
+  // 准备数据：评分作为X轴，价格作为Y轴
+  const discountedPriceData = priceRelation.value.map(item => {
+    const ratingBucket = item.ratingBucket || 0
+    const avgPrice = item.avgDiscountedPrice || 0
+    const productCount = item.productCount || 0
+    return [ratingBucket, avgPrice, productCount] // [评分, 折后价, 商品数]
+  })
+  
+  const originalPriceData = priceRelation.value.map(item => {
+    const ratingBucket = item.ratingBucket || 0
+    const avgPrice = item.avgOriginalPrice || 0
+    const productCount = item.productCount || 0
+    return [ratingBucket, avgPrice, productCount] // [评分, 原价, 商品数]
+  })
+  
+  // 计算趋势线
+  const discountedTrendLine = calculateTrendLine(discountedPriceData)
+  const originalTrendLine = calculateTrendLine(originalPriceData)
+  
+  // 找出关键数据点
+  const maxDiscountedPricePoint = discountedPriceData.reduce((max, point) => point[1] > max[1] ? point : max, discountedPriceData[0])
+  const minDiscountedPricePoint = discountedPriceData.reduce((min, point) => point[1] < min[1] ? point : min, discountedPriceData[0])
+  const maxOriginalPricePoint = originalPriceData.reduce((max, point) => point[1] > max[1] ? point : max, originalPriceData[0])
+  const minOriginalPricePoint = originalPriceData.reduce((min, point) => point[1] < min[1] ? point : min, originalPriceData[0])
+  
   priceInstance.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['折后价', '原价', '平均销量'] },
-    xAxis: { type: 'category', data: xLabels },
-    yAxis: [
-      { type: 'value', name: '价格($)' },
-      { type: 'value', name: '销量', position: 'right' }
-    ],
+    title: {
+      text: '评分与价格的关系分析',
+      left: 'center',
+      top: 10,
+      textStyle: {
+        fontSize: 16,
+        fontWeight: 'bold'
+      }
+    },
+    tooltip: {
+      trigger: 'item',
+      formatter: (params) => {
+        if (params.seriesName === '折后价散点') {
+          const point = discountedPriceData[params.dataIndex]
+          return [
+            `评分区间：${point[0].toFixed(1)}分`,
+            `平均折后价：$${point[1].toFixed(2)}`,
+            `商品数量：${point[2]}`
+          ].join('<br/>')
+        } else if (params.seriesName === '原价散点') {
+          const point = originalPriceData[params.dataIndex]
+          return [
+            `评分区间：${point[0].toFixed(1)}分`,
+            `平均原价：$${point[1].toFixed(2)}`,
+            `商品数量：${point[2]}`
+          ].join('<br/>')
+        } else if (params.seriesName === '折后价趋势线' || params.seriesName === '原价趋势线') {
+          return `趋势线：评分 ${params.value[0].toFixed(1)}分 → 价格 $${params.value[1].toFixed(2)}`
+        }
+        return ''
+      }
+    },
+    legend: {
+      data: ['折后价散点', '折后价趋势线', '原价散点', '原价趋势线', '关键点'],
+      bottom: 10
+    },
+    xAxis: {
+      type: 'value',
+      name: '评分',
+      nameLocation: 'middle',
+      nameGap: 30,
+      min: 0,
+      max: 5,
+      splitLine: {
+        show: true,
+        lineStyle: { type: 'dashed' }
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '价格 ($)',
+      nameLocation: 'middle',
+      nameGap: 50,
+      splitLine: {
+        show: true,
+        lineStyle: { type: 'dashed' }
+      }
+    },
     series: [
       {
-        name: '折后价',
-        type: 'line',
-        data: priceRelation.value.map(i => (i.avgDiscountedPrice || 0).toFixed(2)),
-        smooth: true,
-        itemStyle: { color: '#67C23A' }
+        name: '折后价散点',
+        type: 'scatter',
+        data: discountedPriceData.map((point, index) => ({
+          value: [point[0], point[1]],
+          symbolSize: Math.max(20, Math.min(60, point[2] / 100)),
+          itemStyle: {
+            color: '#67C23A',
+            opacity: 0.7
+          }
+        })),
+        emphasis: {
+          itemStyle: {
+            borderColor: '#67C23A',
+            borderWidth: 2
+          }
+        }
       },
       {
-        name: '原价',
+        name: '折后价趋势线',
         type: 'line',
-        data: priceRelation.value.map(i => (i.avgOriginalPrice || 0).toFixed(2)),
+        data: discountedTrendLine,
         smooth: true,
-        itemStyle: { color: '#F56C6C' }
+        lineStyle: {
+          color: '#67C23A',
+          width: 3,
+          type: 'dashed'
+        },
+        symbol: 'none'
       },
       {
-        name: '平均销量',
-        type: 'bar',
-        yAxisIndex: 1,
-        data: priceRelation.value.map(i => (i.avgMonthlySales || 0).toFixed(2)),
-        itemStyle: { color: '#409EFF', opacity: 0.5 }
+        name: '原价散点',
+        type: 'scatter',
+        data: originalPriceData.map((point, index) => ({
+          value: [point[0], point[1]],
+          symbolSize: Math.max(20, Math.min(60, point[2] / 100)),
+          itemStyle: {
+            color: '#F56C6C',
+            opacity: 0.7
+          }
+        })),
+        emphasis: {
+          itemStyle: {
+            borderColor: '#F56C6C',
+            borderWidth: 2
+          }
+        }
+      },
+      {
+        name: '原价趋势线',
+        type: 'line',
+        data: originalTrendLine,
+        smooth: true,
+        lineStyle: {
+          color: '#F56C6C',
+          width: 3,
+          type: 'dashed'
+        },
+        symbol: 'none'
+      },
+      {
+        name: '关键点',
+        type: 'scatter',
+        data: [
+          {
+            value: [maxDiscountedPricePoint[0], maxDiscountedPricePoint[1]],
+            symbol: 'pin',
+            symbolSize: 50,
+            itemStyle: { color: '#67C23A' },
+            label: {
+              show: true,
+              formatter: '最高折后价',
+              position: 'top',
+              color: '#67C23A',
+              fontWeight: 'bold'
+            }
+          },
+          {
+            value: [minDiscountedPricePoint[0], minDiscountedPricePoint[1]],
+            symbol: 'pin',
+            symbolSize: 50,
+            itemStyle: { color: '#67C23A' },
+            label: {
+              show: true,
+              formatter: '最低折后价',
+              position: 'bottom',
+              color: '#67C23A',
+              fontWeight: 'bold'
+            }
+          }
+        ]
       }
     ],
-    grid: { left: 60, right: 60, top: 40, bottom: 40 }
+    grid: {
+      left: '10%',
+      right: '10%',
+      top: '15%',
+      bottom: '15%',
+      containLabel: true
+    }
   })
 }
 
+// 获取价格分析洞察
+const getPriceInsight = () => {
+  if (!priceRelation.value || priceRelation.value.length === 0) return ''
+  
+  const data = priceRelation.value.map(item => ({
+    rating: item.ratingBucket || 0,
+    discountedPrice: item.avgDiscountedPrice || 0,
+    originalPrice: item.avgOriginalPrice || 0
+  }))
+  
+  // 找出高评分和低评分的平均价格
+  const highRating = data.filter(d => d.rating >= 4.5)
+  const lowRating = data.filter(d => d.rating < 4.0)
+  
+  const highAvgDiscounted = highRating.length > 0 
+    ? highRating.reduce((sum, d) => sum + d.discountedPrice, 0) / highRating.length 
+    : 0
+  const lowAvgDiscounted = lowRating.length > 0 
+    ? lowRating.reduce((sum, d) => sum + d.discountedPrice, 0) / lowRating.length 
+    : 0
+  
+  const highAvgOriginal = highRating.length > 0 
+    ? highRating.reduce((sum, d) => sum + d.originalPrice, 0) / highRating.length 
+    : 0
+  const lowAvgOriginal = lowRating.length > 0 
+    ? lowRating.reduce((sum, d) => sum + d.originalPrice, 0) / lowRating.length 
+    : 0
+  
+  // 找出价格最高的评分区间
+  const maxPriceData = data.reduce((max, d) => d.discountedPrice > max.discountedPrice ? d : max, data[0])
+  const minPriceData = data.reduce((min, d) => d.discountedPrice < min.discountedPrice ? d : min, data[0])
+  
+  let insight = `分析发现：`
+  if (highAvgDiscounted > 0 && lowAvgDiscounted > 0) {
+    insight += `高评分商品（≥4.5分）平均折后价为 $${highAvgDiscounted.toFixed(2)}，`
+    insight += `低评分商品（<4.0分）平均折后价为 $${lowAvgDiscounted.toFixed(2)}，`
+    const priceDiff = highAvgDiscounted - lowAvgDiscounted
+    if (priceDiff > 0) {
+      insight += `高评分商品价格比低评分高 $${priceDiff.toFixed(2)}。`
+    } else {
+      insight += `高评分商品价格比低评分低 $${Math.abs(priceDiff).toFixed(2)}。`
+    }
+  }
+  insight += `折后价最高的评分区间为 ${maxPriceData.rating.toFixed(1)} 分，平均价格 $${maxPriceData.discountedPrice.toFixed(2)}；`
+  insight += `折后价最低的评分区间为 ${minPriceData.rating.toFixed(1)} 分，平均价格 $${minPriceData.discountedPrice.toFixed(2)}。`
+  
+  return insight
+}
+
+// 渲染收益分析图（柱状图 + 饼图）
+const renderRevenueHeatmap = () => {
+  try {
+    console.log('开始渲染收益热力图', {
+      salesLength: salesRelation.value?.length || 0,
+      priceLength: priceRelation.value?.length || 0,
+      chartRef: !!revenueChart.value,
+      salesData: salesRelation.value,
+      priceData: priceRelation.value
+    })
+    
+    if (!salesRelation.value || !salesRelation.value.length || !priceRelation.value || !priceRelation.value.length || !revenueChart.value) {
+      console.warn('收益热力图：数据未准备好', {
+        salesLength: salesRelation.value?.length || 0,
+        priceLength: priceRelation.value?.length || 0,
+        chartRef: !!revenueChart.value
+      })
+      return
+    }
+    
+    if (revenueInstance) revenueInstance.dispose()
+    revenueInstance = echarts.init(revenueChart.value)
+    
+    // 合并销量和价格数据，计算收益
+    const revenueData = []
+    const ratingBuckets = []
+    
+    // 为每个评分区间计算收益
+    salesRelation.value.forEach(salesItem => {
+      // 兼容不同的字段命名方式
+      const rating = salesItem.ratingBucket || salesItem.rating_bucket || 0
+      const avgSales = salesItem.avgMonthlySales || salesItem.avg_monthly_sales || 0
+      
+      // 找到对应的价格数据
+      const priceItem = priceRelation.value.find(p => 
+        (p.ratingBucket || p.rating_bucket) === rating
+      )
+      if (!priceItem) {
+        console.warn('未找到对应的价格数据', { rating, salesItem })
+        return
+      }
+      
+      const avgPrice = priceItem.avgDiscountedPrice || priceItem.avg_discounted_price || 0
+      const revenue = avgPrice * avgSales
+      
+      if (rating > 0 && avgSales > 0 && avgPrice > 0) {
+        revenueData.push({
+          rating,
+          price: avgPrice,
+          sales: avgSales,
+          revenue
+        })
+        
+        if (!ratingBuckets.includes(rating)) {
+          ratingBuckets.push(rating)
+        }
+      } else {
+        console.warn('跳过无效数据点', { rating, avgSales, avgPrice, salesItem, priceItem })
+      }
+    })
+    
+    console.log('收益数据计算结果', { revenueData, ratingBuckets })
+    
+    if (revenueData.length === 0) {
+      console.warn('收益热力图：没有有效数据', {
+        salesRelation: salesRelation.value,
+        priceRelation: priceRelation.value
+      })
+      // 显示提示信息
+      ElMessage.warning('收益热力图：数据为空，请确保已运行评分分析任务并同步数据到MySQL')
+      return
+    }
+    
+    ratingBuckets.sort((a, b) => a - b)
+
+    // 将数据按评分聚合，得到每个评分区间的总收益 / 平均收益
+    const barCategories = ratingBuckets.map(r => `${r.toFixed(1)}分`)
+    const barData = []
+    const pieData = []
+
+    ratingBuckets.forEach(rating => {
+      const list = revenueData.filter(d => Math.abs(d.rating - rating) < 0.1)
+      if (list.length === 0) return
+
+      const totalRevenue = list.reduce((sum, d) => sum + d.revenue, 0)
+      const avgRevenue = totalRevenue / list.length
+
+      barData.push(avgRevenue)
+      pieData.push({
+        name: `${rating.toFixed(1)}分`,
+        value: totalRevenue
+      })
+    })
+
+    if (!barData.length || !pieData.length) {
+      console.warn('收益分析：聚合后无有效数据', { revenueData, ratingBuckets })
+      ElMessage.warning('收益分析：数据为空，请确认评分-销量和评分-价格分析任务已完成')
+      return
+    }
+
+    const maxRevenue = Math.max(...barData, 1)
+
+    revenueInstance.setOption({
+      title: {
+        text: '评分对收益的综合影响分析',
+        subtext: '左侧柱状图：不同评分区间的平均收益；右侧饼图：各评分区间对总收益的贡献占比',
+        left: 'center',
+        top: 10,
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 'bold'
+        }
+      },
+      tooltip: {
+        trigger: 'item'
+      },
+      grid: {
+        left: '8%',
+        right: '45%',
+        top: '22%',
+        bottom: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: barCategories,
+        name: '评分',
+        nameLocation: 'middle',
+        nameGap: 30,
+        axisLabel: {
+          fontSize: 12
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: '平均收益 ($)',
+        nameLocation: 'middle',
+        nameGap: 55,
+        max: maxRevenue * 1.1,
+        axisLabel: {
+          formatter: (value) => {
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M'
+            if (value >= 1000) return (value / 1000).toFixed(0) + 'K'
+            return value.toFixed(0)
+          }
+        }
+      },
+      series: [
+        {
+          name: '平均收益',
+          type: 'bar',
+          data: barData,
+          itemStyle: {
+            color: '#409EFF'
+          },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: (val) => {
+              const v = val.value
+              if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M'
+              if (v >= 1000) return (v / 1000).toFixed(0) + 'K'
+              return v.toFixed(0)
+            },
+            fontSize: 11
+          }
+        },
+        {
+          name: '收益占比',
+          type: 'pie',
+          radius: ['35%', '55%'],
+          center: ['78%', '55%'],
+          data: pieData,
+          label: {
+            formatter: '{b}\n{d}%',
+            fontSize: 11
+          },
+          tooltip: {
+            formatter: (params) => {
+              const v = params.value
+              let valueStr = ''
+              if (v >= 1000000) valueStr = (v / 1000000).toFixed(1) + 'M'
+              else if (v >= 1000) valueStr = (v / 1000).toFixed(0) + 'K'
+              else valueStr = v.toFixed(0)
+              return `${params.name}<br/>总收益：$${valueStr}<br/>占比：${params.percent}%`
+            }
+          }
+        }
+      ]
+    })
+
+    // 保存明细数据用于洞察文字
+    revenueHeatmapData.value = revenueData
+  } catch (error) {
+    console.error('渲染收益热力图失败:', error)
+    ElMessage.error('渲染收益热力图失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 获取收益分析洞察
+const getRevenueInsight = () => {
+  if (!revenueHeatmapData.value || revenueHeatmapData.value.length === 0) return ''
+  
+  const data = revenueHeatmapData.value
+  
+  // 找出高评分和低评分的平均收益
+  const highRating = data.filter(d => d.rating >= 4.5)
+  const lowRating = data.filter(d => d.rating < 4.0)
+  
+  const highAvgRevenue = highRating.length > 0 
+    ? highRating.reduce((sum, d) => sum + d.revenue, 0) / highRating.length 
+    : 0
+  const lowAvgRevenue = lowRating.length > 0 
+    ? lowRating.reduce((sum, d) => sum + d.revenue, 0) / lowRating.length 
+    : 0
+  
+  // 找出收益最高的组合
+  const maxRevenueData = data.reduce((max, d) => d.revenue > max.revenue ? d : max, data[0])
+  
+  let insight = `分析发现：`
+  if (highAvgRevenue > 0 && lowAvgRevenue > 0) {
+    insight += `高评分商品（≥4.5分）平均收益为 $${highAvgRevenue.toFixed(2)}，`
+    insight += `低评分商品（<4.0分）平均收益为 $${lowAvgRevenue.toFixed(2)}，`
+    const ratio = lowAvgRevenue > 0 ? (highAvgRevenue / lowAvgRevenue).toFixed(2) : '--'
+    insight += `高评分商品收益是低评分的 ${ratio} 倍。`
+  }
+  insight += `收益最高的组合为评分 ${maxRevenueData.rating.toFixed(1)} 分、价格 $${maxRevenueData.price.toFixed(2)}，收益 $${maxRevenueData.revenue.toFixed(2)}。`
+  
+  return insight
+}
+
 const renderCharts = () => {
-  renderDistribution()
   renderSalesRelation()
   renderPriceRelation()
+  renderRevenueHeatmap()
+  // 暂时移除其他图表，后续会重新添加
+  // renderDistribution()
 }
 
 const loadDistribution = () => ratingApi.getDistribution().then(res => { distribution.value = res || [] })
 const loadSalesRelation = () => ratingApi.getSalesRelation().then(res => { salesRelation.value = res || [] })
 const loadPriceRelation = () => ratingApi.getPriceRelation().then(res => { priceRelation.value = res || [] })
 
-const loadTopProducts = async () => {
-  loadingTop.value = true
-  try {
-    const params = {
-      category: selectedCategory.value || undefined,
-      minRating: ratingRange.value?.[0],
-      maxRating: ratingRange.value?.[1],
-      minReviews: minReviews.value,
-      minSales: minSales.value,
-      isBestSeller: flagFilters.value.bestSeller || undefined,
-      isSponsored: flagFilters.value.sponsored || undefined,
-      hasCoupon: flagFilters.value.hasCoupon || undefined,
-      buyBox: flagFilters.value.buyBox ? 'True' : undefined
-    }
-    const res = await ratingApi.getTopProducts(params)
-    topProducts.value = res || []
-    const cats = Array.from(new Set((res || []).map(i => i.productCategory))).filter(Boolean)
-    if (!categoryOptions.value.length && cats.length) {
-      categoryOptions.value = cats
-    }
-    currentPage.value = 1
-  } catch (e) {
-    console.error(e)
-    ElMessage.error('加载高评分商品失败')
-  } finally {
-    loadingTop.value = false
-  }
-}
-
 const loadOpportunities = async () => {
   loadingOpportunity.value = true
   try {
-    const params = { category: selectedCategory.value || undefined }
-    const [high, low] = await Promise.all([
-      ratingApi.getHighRatingLowSales(params),
-      ratingApi.getLowRatingHighSales(params)
-    ])
-    highRatingLowSales.value = high || []
-    lowRatingHighSales.value = low || []
+    const res = await ratingApi.getHighRatingLowSales()
+    highRatingLowSales.value = res || []
   } catch (e) {
     console.error(e)
     ElMessage.error('加载机会榜失败')
@@ -444,8 +951,9 @@ const loadAll = async () => {
   try {
     await Promise.all([loadDistribution(), loadSalesRelation(), loadPriceRelation(), loadCategories(), loadCorrelation()])
     await nextTick()
+    calculateStats() // 计算统计指标
     renderCharts()
-    await Promise.all([loadTopProducts(), loadOpportunities()])
+    await loadOpportunities()
     ElMessage.success('评分分析数据已更新')
   } catch (e) {
     console.error(e)
@@ -455,41 +963,7 @@ const loadAll = async () => {
   }
 }
 
-const loadCategories = async () => {
-  try {
-    const data = await categoryApi.getCategoryStats()
-    if (data && Array.isArray(data)) {
-      categoryOptions.value = data.map(item => item.productCategory)
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const resetFilters = () => {
-  ratingRange.value = [3.5, 5]
-  minReviews.value = 50
-  minSales.value = 0
-  flagFilters.value = {
-    bestSeller: false,
-    sponsored: false,
-    hasCoupon: false,
-    buyBox: false
-  }
-  selectedCategory.value = ''
-  handleFilterChange()
-}
-
-const toggleFlag = key => {
-  flagFilters.value[key] = !flagFilters.value[key]
-  handleFilterChange()
-}
-
-const handleFilterChange = () => {
-  currentPage.value = 1
-  loadTopProducts()
-  loadOpportunities()
-}
+const loadCategories = async () => {}
 
 const formatCorr = val => {
   if (val === null || val === undefined || Number.isNaN(val)) return '--'
@@ -499,6 +973,104 @@ const formatCorr = val => {
 const formatNumber = val => {
   if (val === null || val === undefined || Number.isNaN(val)) return '--'
   return Number(val).toFixed(2)
+}
+
+// 格式化相关系数
+const formatCorrelation = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  const num = Number(val)
+  return num.toFixed(3)
+}
+
+// 格式化百分比
+const formatPercent = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '--'
+  return (Number(val) * 100).toFixed(1) + '%'
+}
+
+// 根据相关系数返回颜色
+const getCorrelationColor = val => {
+  if (val === null || val === undefined || Number.isNaN(val)) return '#909399'
+  const num = Math.abs(Number(val))
+  if (num >= 0.5) return '#67C23A'  // 强相关 - 绿色
+  if (num >= 0.3) return '#E6A23C'  // 中等相关 - 橙色
+  if (num >= 0.1) return '#409EFF'  // 弱相关 - 蓝色
+  return '#909399'                  // 几乎无关 - 灰色
+}
+
+// 计算统计指标
+const calculateStats = () => {
+  // 1. 计算整体相关系数（从分类相关性数据中加权平均）
+  if (ratingCorrelation.value && ratingCorrelation.value.length > 0) {
+    let totalSampleSize = 0
+    let weightedSalesCorr = 0
+    let weightedPriceCorr = 0
+    
+    ratingCorrelation.value.forEach(item => {
+      const sampleSize = item.sampleSize || 0
+      if (sampleSize > 0) {
+        totalSampleSize += sampleSize
+        weightedSalesCorr += (item.corrRatingSales || 0) * sampleSize
+        weightedPriceCorr += (item.corrRatingPrice || 0) * sampleSize
+      }
+    })
+    
+    if (totalSampleSize > 0) {
+      stats.value.ratingSalesCorr = weightedSalesCorr / totalSampleSize
+      stats.value.ratingPriceCorr = weightedPriceCorr / totalSampleSize
+    }
+  }
+  
+  // 2. 计算高评分vs低评分平均销量（从评分-销量关系数据中计算）
+  if (salesRelation.value && salesRelation.value.length > 0) {
+    let highRatingTotal = 0
+    let highRatingCount = 0
+    let lowRatingTotal = 0
+    let lowRatingCount = 0
+    
+    salesRelation.value.forEach(item => {
+      const ratingBucket = item.ratingBucket || 0
+      const avgSales = item.avgMonthlySales || 0
+      const productCount = item.productCount || 0
+      
+      if (ratingBucket >= 4.5) {
+        // 高评分（≥4.5）
+        highRatingTotal += avgSales * productCount
+        highRatingCount += productCount
+      } else if (ratingBucket < 4.0) {
+        // 低评分（<4.0）
+        lowRatingTotal += avgSales * productCount
+        lowRatingCount += productCount
+      }
+    })
+    
+    if (highRatingCount > 0) {
+      stats.value.highRatingAvgSales = highRatingTotal / highRatingCount
+    }
+    if (lowRatingCount > 0) {
+      stats.value.lowRatingAvgSales = lowRatingTotal / lowRatingCount
+    }
+  }
+  
+  // 3. 计算高评分商品占比（从评分分布数据中计算）
+  if (distribution.value && distribution.value.length > 0) {
+    let totalProducts = 0
+    let highRatingProducts = 0
+    
+    distribution.value.forEach(item => {
+      const ratingBucket = item.ratingBucket || 0
+      const productCount = item.productCount || 0
+      
+      totalProducts += productCount
+      if (ratingBucket >= 4.5) {
+        highRatingProducts += productCount
+      }
+    })
+    
+    if (totalProducts > 0) {
+      stats.value.highRatingRatio = highRatingProducts / totalProducts
+    }
+  }
 }
 
 onMounted(async () => {
@@ -545,10 +1117,85 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 320px;
 }
+
+/* 大图表样式 */
+.large-chart {
+  width: 100%;
+  height: 500px;
+}
+
+/* 中等图表样式（并排显示） */
+.medium-chart {
+  width: 100%;
+  height: 400px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-right: 12px;
+}
+
+.chart-desc {
+  font-size: 13px;
+  color: #909399;
+  font-weight: normal;
+}
+
+.chart-insight {
+  margin-top: 16px;
+}
 .table-pagination {
   display: flex;
   justify-content: flex-end;
   padding: 12px 0 4px;
+}
+
+/* 顶部统计卡片样式 */
+.stats-row {
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-content {
+  padding: 8px 0;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.stat-desc {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 </style>
 
