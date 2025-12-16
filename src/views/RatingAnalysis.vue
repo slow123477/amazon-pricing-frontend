@@ -58,19 +58,10 @@
             <div class="chart-header">
               <div>
                 <span class="chart-title">评分对销量的影响分析</span>
-                <span class="chart-desc">分析不同评分区间对商品销量的影响，通过散点图和趋势线展示评分与销量的关系</span>
               </div>
             </div>
           </template>
           <div ref="salesChart" class="medium-chart"></div>
-          <div class="chart-insight" v-if="salesRelation && salesRelation.length > 0">
-            <el-alert
-              :title="getSalesInsight()"
-              type="info"
-              :closable="false"
-              show-icon
-            />
-          </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :sm="24" :md="12" :lg="12">
@@ -79,42 +70,45 @@
             <div class="chart-header">
               <div>
                 <span class="chart-title">评分对价格的影响分析</span>
-                <span class="chart-desc">分析不同评分区间对商品价格的影响，展示评分与折后价、原价的关系</span>
               </div>
             </div>
           </template>
           <div ref="priceChart" class="medium-chart"></div>
-          <div class="chart-insight" v-if="priceRelation && priceRelation.length > 0">
-            <el-alert
-              :title="getPriceInsight()"
-              type="info"
-              :closable="false"
-              show-icon
-            />
-          </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 核心分析图表3：评分对收益的综合影响分析（柱状图 + 饼图） -->
+    <!-- 核心分析图表3：评分对收益的综合影响分析（拆成两张图：柱状 + 饼图） -->
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="chart-header">
           <div>
             <span class="chart-title">评分对收益的综合影响分析</span>
-            <span class="chart-desc">左侧柱状图展示不同评分区间的平均收益，右侧饼图展示各评分区间对总收益的贡献占比</span>
           </div>
         </div>
       </template>
-      <div ref="revenueChart" class="large-chart"></div>
-      <div class="chart-insight" v-if="revenueHeatmapData && revenueHeatmapData.length > 0">
-        <el-alert
-          :title="getRevenueInsight()"
-          type="info"
-          :closable="false"
-          show-icon
-        />
-      </div>
+      <el-row :gutter="16">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-card shadow="never" class="inner-card">
+            <template #header>
+              <div class="card-header">
+                <span>不同评分区间的平均收益</span>
+              </div>
+            </template>
+            <div ref="revenueBarChart" class="medium-chart"></div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-card shadow="never" class="inner-card">
+            <template #header>
+              <div class="card-header">
+                <span>各评分区间对总收益的贡献占比</span>
+              </div>
+            </template>
+            <div ref="revenuePieChart" class="medium-chart"></div>
+          </el-card>
+        </el-col>
+      </el-row>
     </el-card>
 
     <el-card shadow="hover" class="section-card">
@@ -146,11 +140,13 @@ import { ElMessage } from 'element-plus'
 const distributionChart = ref(null)
 const salesChart = ref(null)
 const priceChart = ref(null)
-const revenueChart = ref(null)
+const revenueBarChart = ref(null)
+const revenuePieChart = ref(null)
 let distributionInstance = null
 let salesInstance = null
 let priceInstance = null
-let revenueInstance = null
+let revenueBarInstance = null
+let revenuePieInstance = null
 
 const distribution = ref([])
 const salesRelation = ref([])
@@ -175,12 +171,14 @@ const loadingCorrelation = ref(false)
 const disposeCharts = () => {
   if (salesInstance) salesInstance.dispose()
   if (priceInstance) priceInstance.dispose()
-  if (revenueInstance) revenueInstance.dispose()
+  if (revenueBarInstance) revenueBarInstance.dispose()
+  if (revenuePieInstance) revenuePieInstance.dispose()
   // 暂时移除其他图表实例
   // if (distributionInstance) distributionInstance.dispose()
   salesInstance = null
   priceInstance = null
-  revenueInstance = null
+  revenueBarInstance = null
+  revenuePieInstance = null
   // distributionInstance = null
 }
 
@@ -439,35 +437,18 @@ const renderPriceRelation = () => {
   if (!priceRelation.value.length || !priceChart.value) return
   if (priceInstance) priceInstance.dispose()
   priceInstance = echarts.init(priceChart.value)
-  
-  // 准备数据：评分作为X轴，价格作为Y轴
-  const discountedPriceData = priceRelation.value.map(item => {
-    const ratingBucket = item.ratingBucket || 0
-    const avgPrice = item.avgDiscountedPrice || 0
-    const productCount = item.productCount || 0
-    return [ratingBucket, avgPrice, productCount] // [评分, 折后价, 商品数]
+
+  // 准备数据：按评分区间展示“平均折后价 vs 平均原价”的对比条形图
+  const categories = priceRelation.value.map(item => {
+    const ratingBucket = item.ratingBucket || item.rating_bucket || 0
+    return `${ratingBucket.toFixed(1)}分`
   })
-  
-  const originalPriceData = priceRelation.value.map(item => {
-    const ratingBucket = item.ratingBucket || 0
-    const avgPrice = item.avgOriginalPrice || 0
-    const productCount = item.productCount || 0
-    return [ratingBucket, avgPrice, productCount] // [评分, 原价, 商品数]
-  })
-  
-  // 计算趋势线
-  const discountedTrendLine = calculateTrendLine(discountedPriceData)
-  const originalTrendLine = calculateTrendLine(originalPriceData)
-  
-  // 找出关键数据点
-  const maxDiscountedPricePoint = discountedPriceData.reduce((max, point) => point[1] > max[1] ? point : max, discountedPriceData[0])
-  const minDiscountedPricePoint = discountedPriceData.reduce((min, point) => point[1] < min[1] ? point : min, discountedPriceData[0])
-  const maxOriginalPricePoint = originalPriceData.reduce((max, point) => point[1] > max[1] ? point : max, originalPriceData[0])
-  const minOriginalPricePoint = originalPriceData.reduce((min, point) => point[1] < min[1] ? point : min, originalPriceData[0])
-  
+  const discountedPrices = priceRelation.value.map(item => item.avgDiscountedPrice || item.avg_discounted_price || 0)
+  const originalPrices = priceRelation.value.map(item => item.avgOriginalPrice || item.avg_original_price || 0)
+
   priceInstance.setOption({
     title: {
-      text: '评分与价格的关系分析',
+      text: '不同评分区间的价格水平对比',
       left: 'center',
       top: 10,
       textStyle: {
@@ -476,43 +457,26 @@ const renderPriceRelation = () => {
       }
     },
     tooltip: {
-      trigger: 'item',
+      trigger: 'axis',
       formatter: (params) => {
-        if (params.seriesName === '折后价散点') {
-          const point = discountedPriceData[params.dataIndex]
-          return [
-            `评分区间：${point[0].toFixed(1)}分`,
-            `平均折后价：$${point[1].toFixed(2)}`,
-            `商品数量：${point[2]}`
-          ].join('<br/>')
-        } else if (params.seriesName === '原价散点') {
-          const point = originalPriceData[params.dataIndex]
-          return [
-            `评分区间：${point[0].toFixed(1)}分`,
-            `平均原价：$${point[1].toFixed(2)}`,
-            `商品数量：${point[2]}`
-          ].join('<br/>')
-        } else if (params.seriesName === '折后价趋势线' || params.seriesName === '原价趋势线') {
-          return `趋势线：评分 ${params.value[0].toFixed(1)}分 → 价格 $${params.value[1].toFixed(2)}`
-        }
-        return ''
+        let result = `${params[0].axisValue}<br/>`
+        params.forEach(param => {
+          const value = param.value || 0
+          result += `${param.seriesName}: $${value.toFixed(2)}<br/>`
+        })
+        return result
       }
     },
     legend: {
-      data: ['折后价散点', '折后价趋势线', '原价散点', '原价趋势线', '关键点'],
+      data: ['平均折后价', '平均原价'],
       bottom: 10
     },
     xAxis: {
-      type: 'value',
-      name: '评分',
+      type: 'category',
+      data: categories,
+      name: '评分区间',
       nameLocation: 'middle',
-      nameGap: 30,
-      min: 0,
-      max: 5,
-      splitLine: {
-        show: true,
-        lineStyle: { type: 'dashed' }
-      }
+      nameGap: 30
     },
     yAxis: {
       type: 'value',
@@ -526,96 +490,32 @@ const renderPriceRelation = () => {
     },
     series: [
       {
-        name: '折后价散点',
-        type: 'scatter',
-        data: discountedPriceData.map((point, index) => ({
-          value: [point[0], point[1]],
-          symbolSize: Math.max(20, Math.min(60, point[2] / 100)),
-          itemStyle: {
-            color: '#67C23A',
-            opacity: 0.7
-          }
-        })),
-        emphasis: {
-          itemStyle: {
-            borderColor: '#67C23A',
-            borderWidth: 2
-          }
+        name: '平均折后价',
+        type: 'bar',
+        data: discountedPrices,
+        itemStyle: {
+          color: '#67C23A'
+        },
+        label: {
+          show: true,
+          position: 'top',
+          formatter: params => `$${params.value.toFixed(2)}`,
+          fontSize: 11
         }
       },
       {
-        name: '折后价趋势线',
-        type: 'line',
-        data: discountedTrendLine,
-        smooth: true,
-        lineStyle: {
-          color: '#67C23A',
-          width: 3,
-          type: 'dashed'
+        name: '平均原价',
+        type: 'bar',
+        data: originalPrices,
+        itemStyle: {
+          color: '#F56C6C'
         },
-        symbol: 'none'
-      },
-      {
-        name: '原价散点',
-        type: 'scatter',
-        data: originalPriceData.map((point, index) => ({
-          value: [point[0], point[1]],
-          symbolSize: Math.max(20, Math.min(60, point[2] / 100)),
-          itemStyle: {
-            color: '#F56C6C',
-            opacity: 0.7
-          }
-        })),
-        emphasis: {
-          itemStyle: {
-            borderColor: '#F56C6C',
-            borderWidth: 2
-          }
+        label: {
+          show: true,
+          position: 'top',
+          formatter: params => `$${params.value.toFixed(2)}`,
+          fontSize: 11
         }
-      },
-      {
-        name: '原价趋势线',
-        type: 'line',
-        data: originalTrendLine,
-        smooth: true,
-        lineStyle: {
-          color: '#F56C6C',
-          width: 3,
-          type: 'dashed'
-        },
-        symbol: 'none'
-      },
-      {
-        name: '关键点',
-        type: 'scatter',
-        data: [
-          {
-            value: [maxDiscountedPricePoint[0], maxDiscountedPricePoint[1]],
-            symbol: 'pin',
-            symbolSize: 50,
-            itemStyle: { color: '#67C23A' },
-            label: {
-              show: true,
-              formatter: '最高折后价',
-              position: 'top',
-              color: '#67C23A',
-              fontWeight: 'bold'
-            }
-          },
-          {
-            value: [minDiscountedPricePoint[0], minDiscountedPricePoint[1]],
-            symbol: 'pin',
-            symbolSize: 50,
-            itemStyle: { color: '#67C23A' },
-            label: {
-              show: true,
-              formatter: '最低折后价',
-              position: 'bottom',
-              color: '#67C23A',
-              fontWeight: 'bold'
-            }
-          }
-        ]
       }
     ],
     grid: {
@@ -677,28 +577,32 @@ const getPriceInsight = () => {
   return insight
 }
 
-// 渲染收益分析图（柱状图 + 饼图）
+// 渲染收益分析图（拆成两张图：柱状图 + 饼图）
 const renderRevenueHeatmap = () => {
   try {
-    console.log('开始渲染收益热力图', {
+    console.log('开始渲染收益分析图', {
       salesLength: salesRelation.value?.length || 0,
       priceLength: priceRelation.value?.length || 0,
-      chartRef: !!revenueChart.value,
+      barChartRef: !!revenueBarChart.value,
+      pieChartRef: !!revenuePieChart.value,
       salesData: salesRelation.value,
       priceData: priceRelation.value
     })
     
-    if (!salesRelation.value || !salesRelation.value.length || !priceRelation.value || !priceRelation.value.length || !revenueChart.value) {
-      console.warn('收益热力图：数据未准备好', {
+    if (!salesRelation.value || !salesRelation.value.length || !priceRelation.value || !priceRelation.value.length || !revenueBarChart.value || !revenuePieChart.value) {
+      console.warn('收益分析图：数据未准备好', {
         salesLength: salesRelation.value?.length || 0,
         priceLength: priceRelation.value?.length || 0,
-        chartRef: !!revenueChart.value
+        barChartRef: !!revenueBarChart.value,
+        pieChartRef: !!revenuePieChart.value
       })
       return
     }
     
-    if (revenueInstance) revenueInstance.dispose()
-    revenueInstance = echarts.init(revenueChart.value)
+    if (revenueBarInstance) revenueBarInstance.dispose()
+    if (revenuePieInstance) revenuePieInstance.dispose()
+    revenueBarInstance = echarts.init(revenueBarChart.value)
+    revenuePieInstance = echarts.init(revenuePieChart.value)
     
     // 合并销量和价格数据，计算收益
     const revenueData = []
@@ -779,24 +683,15 @@ const renderRevenueHeatmap = () => {
 
     const maxRevenue = Math.max(...barData, 1)
 
-    revenueInstance.setOption({
-      title: {
-        text: '评分对收益的综合影响分析',
-        subtext: '左侧柱状图：不同评分区间的平均收益；右侧饼图：各评分区间对总收益的贡献占比',
-        left: 'center',
-        top: 10,
-        textStyle: {
-          fontSize: 16,
-          fontWeight: 'bold'
-        }
-      },
+    // 左侧：柱状图（不同评分区间的平均收益）
+    revenueBarInstance.setOption({
       tooltip: {
-        trigger: 'item'
+        trigger: 'axis'
       },
       grid: {
-        left: '8%',
-        right: '45%',
-        top: '22%',
+        left: '10%',
+        right: '5%',
+        top: '15%',
         bottom: '15%',
         containLabel: true
       },
@@ -843,26 +738,44 @@ const renderRevenueHeatmap = () => {
             },
             fontSize: 11
           }
-        },
+        }
+      ]
+    })
+
+    // 右侧：饼图（各评分区间对总收益的贡献占比）
+    revenuePieInstance.setOption({
+      tooltip: {
+        trigger: 'item',
+        formatter: (params) => {
+          const v = params.value
+          let valueStr = ''
+          if (v >= 1000000) valueStr = (v / 1000000).toFixed(1) + 'M'
+          else if (v >= 1000) valueStr = (v / 1000).toFixed(0) + 'K'
+          else valueStr = v.toFixed(0)
+          return `${params.name}<br/>总收益：$${valueStr}<br/>占比：${params.percent}%`
+        }
+      },
+      legend: {
+        type: 'scroll',
+        orient: 'vertical',
+        right: 10,
+        top: 20,
+        bottom: 20
+      },
+      series: [
         {
           name: '收益占比',
           type: 'pie',
-          radius: ['35%', '55%'],
-          center: ['78%', '55%'],
+          radius: ['40%', '70%'],
+          center: ['35%', '50%'],
           data: pieData,
           label: {
             formatter: '{b}\n{d}%',
             fontSize: 11
           },
-          tooltip: {
-            formatter: (params) => {
-              const v = params.value
-              let valueStr = ''
-              if (v >= 1000000) valueStr = (v / 1000000).toFixed(1) + 'M'
-              else if (v >= 1000) valueStr = (v / 1000).toFixed(0) + 'K'
-              else valueStr = v.toFixed(0)
-              return `${params.name}<br/>总收益：$${valueStr}<br/>占比：${params.percent}%`
-            }
+          labelLine: {
+            length: 10,
+            length2: 8
           }
         }
       ]
@@ -967,7 +880,7 @@ const loadCategories = async () => {}
 
 const formatCorr = val => {
   if (val === null || val === undefined || Number.isNaN(val)) return '--'
-  return Number(val).toFixed(3)
+  return Number(val).toFixed(2)
 }
 
 const formatNumber = val => {
@@ -979,7 +892,7 @@ const formatNumber = val => {
 const formatCorrelation = val => {
   if (val === null || val === undefined || Number.isNaN(val)) return '--'
   const num = Number(val)
-  return num.toFixed(3)
+  return num.toFixed(2)
 }
 
 // 格式化百分比
@@ -1121,13 +1034,13 @@ onBeforeUnmount(() => {
 /* 大图表样式 */
 .large-chart {
   width: 100%;
-  height: 500px;
+  height: 320px;
 }
 
 /* 中等图表样式（并排显示） */
 .medium-chart {
   width: 100%;
-  height: 400px;
+  height: 320px;
 }
 
 .chart-header {

@@ -50,32 +50,66 @@
       </el-col>
     </el-row>
 
+    <!-- 销量构成与集中度分析（两张图一行） -->
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>销量分析概览</span>
+          <span>销量构成与集中度分析</span>
           <el-button type="primary" :loading="loading" @click="loadAll">
             重新加载
           </el-button>
         </div>
       </template>
       <el-row :gutter="16">
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
           <el-card shadow="never" class="inner-card">
-            <template #header>分类销量统计</template>
-            <div ref="categoryChart" class="chart"></div>
+            <template #header>
+              <div class="card-header">
+                <span>品类销量构成分析</span>
+              </div>
+            </template>
+            <div ref="categoryPieChart" class="chart"></div>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
           <el-card shadow="never" class="inner-card">
-            <template #header>销量影响因素</template>
-            <div ref="factorChart" class="chart"></div>
+            <template #header>
+              <div class="card-header">
+                <span>销量集中度折线图（前12品类）</span>
+              </div>
+            </template>
+            <div ref="salesTrendChart" class="chart"></div>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="24" :md="12" :lg="8">
+      </el-row>
+    </el-card>
+
+    <!-- 销量驱动因素分析（两张图一行） -->
+    <el-card shadow="hover" class="section-card">
+      <template #header>
+        <div class="card-header">
+          <span>销量驱动因素分析</span>
+        </div>
+      </template>
+      <el-row :gutter="16">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
           <el-card shadow="never" class="inner-card">
-            <template #header>整体销量榜 Top10</template>
-            <div ref="rankingChart" class="chart"></div>
+            <template #header>
+              <div class="card-header">
+                <span>各品类优惠券覆盖率对比</span>
+              </div>
+            </template>
+            <div ref="couponBarChart" class="chart"></div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-card shadow="never" class="inner-card">
+            <template #header>
+              <div class="card-header">
+                <span>销量主要驱动因素占比</span>
+              </div>
+            </template>
+            <div ref="factorDriverPieChart" class="chart"></div>
           </el-card>
         </el-col>
       </el-row>
@@ -93,7 +127,6 @@
             {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
           </template>
         </el-table-column>
-        <el-table-column prop="rankInCategory" label="分类内排名" width="100" />
         <el-table-column prop="productTitle" label="商品" min-width="220" show-overflow-tooltip />
         <el-table-column prop="productCategory" label="分类" width="140" show-overflow-tooltip />
         <el-table-column prop="purchasedLastMonth" label="月销量" width="100" />
@@ -109,11 +142,6 @@
               <el-tag v-if="scope.row.hasCoupon" type="info" size="small">券</el-tag>
               <el-tag v-if="scope.row.buyBoxAvailability === 'add to cart'" type="primary" size="small">BuyBox</el-tag>
             </el-space>
-          </template>
-        </el-table-column>
-        <el-table-column label="链接" width="90">
-          <template #default="scope">
-            <el-link :href="scope.row.productPageUrl" target="_blank" type="primary">查看</el-link>
           </template>
         </el-table-column>
       </el-table>
@@ -138,9 +166,17 @@ import { ElMessage } from 'element-plus'
 const categoryChart = ref(null)
 const factorChart = ref(null)
 const rankingChart = ref(null)
+const categoryPieChart = ref(null)
+const salesTrendChart = ref(null)
+const couponBarChart = ref(null)
+const factorDriverPieChart = ref(null)
 let categoryInstance = null
 let factorInstance = null
 let rankingInstance = null
+let categoryPieInstance = null
+let salesTrendInstance = null
+let couponBarInstance = null
+let factorDriverPieInstance = null
 
 const categoryStats = ref([])
 const salesFactors = ref([])
@@ -171,7 +207,11 @@ const disposeCharts = () => {
   if (categoryInstance) categoryInstance.dispose()
   if (factorInstance) factorInstance.dispose()
   if (rankingInstance) rankingInstance.dispose()
-  categoryInstance = factorInstance = rankingInstance = null
+  if (categoryPieInstance) categoryPieInstance.dispose()
+  if (salesTrendInstance) salesTrendInstance.dispose()
+  if (couponBarInstance) couponBarInstance.dispose()
+  if (factorDriverPieInstance) factorDriverPieInstance.dispose()
+  categoryInstance = factorInstance = rankingInstance = categoryPieInstance = salesTrendInstance = couponBarInstance = factorDriverPieInstance = null
 }
 
 const renderCategoryChart = () => {
@@ -180,7 +220,21 @@ const renderCategoryChart = () => {
   categoryInstance = echarts.init(categoryChart.value)
   const names = categoryStats.value.map(i => i.productCategory)
   categoryInstance.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        let result = `${params[0].axisValue}<br/>`
+        params.forEach(param => {
+          const value = param.value || 0
+          if (param.seriesName === '总销量') {
+            result += `${param.seriesName}: ${value.toFixed(0)}<br/>`
+          } else {
+            result += `${param.seriesName}: ${value.toFixed(2)}<br/>`
+          }
+        })
+        return result
+      }
+    },
     xAxis: { type: 'category', data: names },
     yAxis: [
       { type: 'value', name: '总销量' },
@@ -197,7 +251,148 @@ const renderCategoryChart = () => {
         name: '平均销量',
         type: 'line',
         yAxisIndex: 1,
-        data: categoryStats.value.map(i => (i.avgSales || 0).toFixed(2)),
+        data: categoryStats.value.map(i => i.avgSales || 0),
+        smooth: true,
+        itemStyle: { color: '#E6A23C' }
+      }
+    ],
+    grid: { left: 60, right: 60, top: 40, bottom: 80 }
+  })
+}
+
+// 品类销量构成饼图
+const renderCategoryPieChart = () => {
+  if (!categoryStats.value.length || !categoryPieChart.value) return
+  if (categoryPieInstance) categoryPieInstance.dispose()
+  categoryPieInstance = echarts.init(categoryPieChart.value)
+
+  const data = categoryStats.value.map(item => ({
+    name: item.productCategory || '未知分类',
+    value: item.totalSales || 0
+  }))
+
+  categoryPieInstance.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: params => {
+        const percent = params.percent != null ? params.percent.toFixed(1) : '0.0'
+        return [
+          `品类：${params.name}`,
+          `总销量：${formatNumber(params.value)}`,
+          `占比：${percent}%`
+        ].join('<br/>')
+      }
+    },
+    legend: {
+      type: 'scroll',
+      orient: 'vertical',
+      right: 10,
+      top: 20,
+      bottom: 20
+    },
+    series: [
+      {
+        name: '品类销量构成',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['35%', '50%'],
+        data,
+        label: {
+          formatter: '{b}\n{d}%'
+        },
+        labelLine: {
+          length: 10,
+          length2: 8
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.4)'
+          }
+        }
+      }
+    ]
+  })
+}
+
+// 品类销量集中度折线图（前 N 品类累积占比）
+const renderSalesTrendChart = () => {
+  if (!categoryStats.value.length || !salesTrendChart.value) return
+  if (salesTrendInstance) salesTrendInstance.dispose()
+  salesTrendInstance = echarts.init(salesTrendChart.value)
+
+  // 按总销量从高到低排序，取前 N 个品类
+  const sorted = [...categoryStats.value].sort((a, b) => (b.totalSales || 0) - (a.totalSales || 0))
+  const topN = sorted.slice(0, 12)
+  const names = topN.map(i => i.productCategory)
+  const sales = topN.map(i => i.totalSales || 0)
+  const total = sales.reduce((sum, v) => sum + v, 0)
+  const cumulative = sales.reduce((arr, v, idx) => {
+    const prev = idx === 0 ? 0 : arr[idx - 1]
+    arr.push(total > 0 ? (prev + v) / total * 100 : 0)
+    return arr
+  }, [])
+
+  salesTrendInstance.setOption({
+    tooltip: {
+      trigger: 'axis',
+      formatter: params => {
+        const bar = params.find(p => p.seriesName === '单品类销量')
+        const line = params.find(p => p.seriesName === '累计占比')
+        const lines = []
+        if (bar) {
+          lines.push(`品类：${bar.axisValue}`)
+          lines.push(`单品类销量：${formatNumber(bar.data)}`)
+        }
+        if (line) {
+          lines.push(`累计占比：${line.data.toFixed(1)}%`)
+        }
+        return lines.join('<br/>')
+      }
+    },
+    legend: { data: ['单品类销量', '累计占比'] },
+    xAxis: {
+      type: 'category',
+      data: names,
+      axisLabel: { interval: 0, rotate: 35 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '销量',
+        axisLabel: {
+          formatter: value => {
+            if (value >= 100000000) {
+              return (value / 100000000).toFixed(1).replace(/\.0$/, '') + '亿'
+            }
+            if (value >= 10000) {
+              return (value / 10000).toFixed(1).replace(/\.0$/, '') + '万'
+            }
+            return value
+          }
+        }
+      },
+      {
+        type: 'value',
+        name: '累计占比(%)',
+        position: 'right',
+        min: 0,
+        max: 100
+      }
+    ],
+    series: [
+      {
+        name: '单品类销量',
+        type: 'bar',
+        data: sales,
+        itemStyle: { color: '#409EFF' }
+      },
+      {
+        name: '累计占比',
+        type: 'line',
+        yAxisIndex: 1,
+        data: cumulative,
         smooth: true,
         itemStyle: { color: '#E6A23C' }
       }
@@ -212,7 +407,17 @@ const renderFactorChart = () => {
   factorInstance = echarts.init(factorChart.value)
   const categories = salesFactors.value.map(i => i.productCategory)
   factorInstance.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        let result = `${params[0].axisValue}<br/>`
+        params.forEach(param => {
+          const value = param.value || 0
+          result += `${param.seriesName}: ${value.toFixed(2)}<br/>`
+        })
+        return result
+      }
+    },
     legend: { data: ['评分相关性', '折扣相关性', '评论相关性'] },
     xAxis: { type: 'category', data: categories },
     yAxis: { type: 'value', name: '相关系数' },
@@ -220,26 +425,136 @@ const renderFactorChart = () => {
       {
         name: '评分相关性',
         type: 'line',
-        data: salesFactors.value.map(i => (i.corrSalesRating || 0).toFixed(3)),
+        data: salesFactors.value.map(i => i.corrSalesRating || 0),
         smooth: true,
         itemStyle: { color: '#67C23A' }
       },
       {
         name: '折扣相关性',
         type: 'line',
-        data: salesFactors.value.map(i => (i.corrSalesDiscount || 0).toFixed(3)),
+        data: salesFactors.value.map(i => i.corrSalesDiscount || 0),
         smooth: true,
         itemStyle: { color: '#409EFF' }
       },
       {
         name: '评论相关性',
         type: 'line',
-        data: salesFactors.value.map(i => (i.corrSalesReviews || 0).toFixed(3)),
+        data: salesFactors.value.map(i => i.corrSalesReviews || 0),
         smooth: true,
         itemStyle: { color: '#E6A23C' }
       }
     ],
     grid: { left: 60, right: 20, top: 40, bottom: 80 }
+  })
+}
+
+// 各品类优惠券覆盖率饼图（样式统一为左环形 + 右图例）
+const renderCouponBarChart = () => {
+  if (!salesFactors.value.length || !couponBarChart.value) return
+  if (couponBarInstance) couponBarInstance.dispose()
+  couponBarInstance = echarts.init(couponBarChart.value)
+
+  const sorted = [...salesFactors.value].sort((a, b) => (b.ratioCoupon || 0) - (a.ratioCoupon || 0))
+  const topN = sorted.slice(0, 12)
+  const pieData = topN.map(i => ({
+    name: i.productCategory,
+    value: (i.ratioCoupon || 0) * 100 // 直接用百分比值，便于提示
+  }))
+
+  couponBarInstance.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: params => {
+        return [
+          `品类：${params.name}`,
+          `有优惠券商品占比：${params.value.toFixed(1)}%`
+        ].join('<br/>')
+      }
+    },
+    legend: {
+      type: 'scroll',
+      orient: 'vertical',
+      right: 10,
+      top: 20,
+      bottom: 20
+    },
+    series: [
+      {
+        name: '有优惠券商品占比',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['35%', '50%'],
+        data: pieData,
+        label: {
+          formatter: '{b}\n{d}%'
+        },
+        labelLine: {
+          length: 10,
+          length2: 8
+        }
+      }
+    ]
+  })
+}
+
+// 销量主要驱动因素占比饼图（统计每个品类主要受哪个因素驱动）
+const renderFactorDriverPieChart = () => {
+  if (!salesFactors.value.length || !factorDriverPieChart.value) return
+  if (factorDriverPieInstance) factorDriverPieInstance.dispose()
+  factorDriverPieInstance = echarts.init(factorDriverPieChart.value)
+
+  const counter = {
+    rating: 0,
+    discount: 0,
+    reviews: 0
+  }
+
+  salesFactors.value.forEach(item => {
+    const r = Math.abs(item.corrSalesRating || 0)
+    const d = Math.abs(item.corrSalesDiscount || 0)
+    const v = Math.abs(item.corrSalesReviews || 0)
+    const max = Math.max(r, d, v)
+    if (max === 0) return
+    if (max === r) counter.rating++
+    else if (max === d) counter.discount++
+    else counter.reviews++
+  })
+
+  const pieData = [
+    { name: '评分驱动为主的品类数', value: counter.rating },
+    { name: '折扣驱动为主的品类数', value: counter.discount },
+    { name: '评论驱动为主的品类数', value: counter.reviews }
+  ]
+
+  factorDriverPieInstance.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c}（{d}%）'
+    },
+    legend: {
+      type: 'scroll',
+      orient: 'vertical',
+      right: 10,
+      top: 20,
+      bottom: 20
+    },
+    series: [
+      {
+        name: '驱动因素',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: false,
+        data: pieData,
+        label: {
+          formatter: '{b}\n{d}%'
+        },
+        labelLine: {
+          length: 10,
+          length2: 8
+        }
+      }
+    ]
   })
 }
 
@@ -268,6 +583,10 @@ const renderCharts = () => {
   renderCategoryChart()
   renderFactorChart()
   renderRankingChart()
+  renderCategoryPieChart()
+  renderSalesTrendChart()
+  renderCouponBarChart()
+  renderFactorDriverPieChart()
 }
 
 const loadCategoryStats = () => salesApi.getCategoryStats().then(res => { categoryStats.value = res || [] })

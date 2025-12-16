@@ -151,19 +151,19 @@ const overviewCards = computed(() => {
   return [
     {
       label: 'RMSE',
-      value: overview.value.rmse?.toFixed(4) || '-',
+      value: overview.value.rmse?.toFixed(2) || '-',
       color: '#409EFF',
       desc: '越低越好'
     },
     {
       label: 'MAE',
-      value: overview.value.mae?.toFixed(4) || '-',
+      value: overview.value.mae?.toFixed(2) || '-',
       color: '#409EFF',
       desc: '平均绝对误差'
     },
     {
       label: 'R²',
-      value: overview.value.r2?.toFixed(4) || '-',
+      value: overview.value.r2?.toFixed(2) || '-',
       color: '#67C23A',
       desc: '拟合优度'
     },
@@ -180,9 +180,9 @@ const versionRows = computed(() => {
   return metricsHistory.value.map((item, index) => ({
     version: `v${String(metricsHistory.value.length - index).padStart(2, '0')}`,
     runTime: formatTime(item.runTime),
-    rmse: item.rmse?.toFixed(4) || '-',
-    mae: item.mae?.toFixed(4) || '-',
-    r2: item.r2?.toFixed(4) || '-'
+    rmse: item.rmse?.toFixed(2) || '-',
+    mae: item.mae?.toFixed(2) || '-',
+    r2: item.r2?.toFixed(2) || '-'
   }))
 })
 
