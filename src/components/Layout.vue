@@ -43,7 +43,7 @@
           
           <el-menu-item index="/dashboard">
             <el-icon><Monitor /></el-icon>
-            <span>可视化大屏</span>
+            <span>数据看板</span>
           </el-menu-item>
 
           <el-sub-menu index="analysis">

@@ -54,7 +54,7 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>销量构成与集中度分析</span>
+          <span class="chart-title">销量构成与集中度分析</span>
           <el-button type="primary" :loading="loading" @click="loadAll">
             重新加载
           </el-button>
@@ -88,7 +88,7 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>销量驱动因素分析</span>
+          <span class="chart-title">销量驱动因素分析</span>
         </div>
       </template>
       <el-row :gutter="16">
@@ -714,6 +714,12 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-right: 12px;
 }
 .inner-card {
   margin-bottom: 12px;

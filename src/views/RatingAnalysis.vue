@@ -50,33 +50,41 @@
 
     <!-- 顶部筛选卡片暂时移除，只保留下方核心图表和机会榜 -->
 
-    <!-- 核心分析图表：评分对销量和价格的影响分析 -->
-    <el-row :gutter="16">
-      <el-col :xs="24" :sm="24" :md="12" :lg="12">
-        <el-card shadow="hover" class="section-card">
-          <template #header>
-            <div class="chart-header">
-              <div>
-                <span class="chart-title">评分对销量的影响分析</span>
+    <!-- 核心分析图表：评分对销量和价格的影响分析（整体卡片 + 内部两张图） -->
+    <el-card shadow="hover" class="section-card">
+      <template #header>
+        <div class="chart-header">
+          <div>
+            <span class="chart-title">评分对销量和价格的影响分析</span>
+          </div>
+          <el-button type="primary" :loading="loading" @click="loadAll">
+            重新加载
+          </el-button>
+        </div>
+      </template>
+      <el-row :gutter="16">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-card shadow="never" class="inner-card">
+            <template #header>
+              <div class="card-header">
+                <span>评分对销量的影响分析</span>
               </div>
-            </div>
-          </template>
-          <div ref="salesChart" class="medium-chart"></div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="12" :lg="12">
-        <el-card shadow="hover" class="section-card">
-          <template #header>
-            <div class="chart-header">
-              <div>
-                <span class="chart-title">评分对价格的影响分析</span>
+            </template>
+            <div ref="salesChart" class="medium-chart"></div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-card shadow="never" class="inner-card">
+            <template #header>
+              <div class="card-header">
+                <span>评分对价格的影响分析</span>
               </div>
-            </div>
-          </template>
-          <div ref="priceChart" class="medium-chart"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+            </template>
+            <div ref="priceChart" class="medium-chart"></div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </el-card>
 
     <!-- 核心分析图表3：评分对收益的综合影响分析（拆成两张图：柱状 + 饼图） -->
     <el-card shadow="hover" class="section-card">
@@ -236,15 +244,6 @@ const renderSalesRelation = () => {
   const minSalesPoint = data.reduce((min, point) => point[1] < min[1] ? point : min, data[0])
   
   salesInstance.setOption({
-    title: {
-      text: '评分与销量的关系分析',
-      left: 'center',
-      top: 10,
-      textStyle: {
-        fontSize: 16,
-        fontWeight: 'bold'
-      }
-    },
     tooltip: {
       trigger: 'item',
       formatter: (params) => {
@@ -447,15 +446,6 @@ const renderPriceRelation = () => {
   const originalPrices = priceRelation.value.map(item => item.avgOriginalPrice || item.avg_original_price || 0)
 
   priceInstance.setOption({
-    title: {
-      text: '不同评分区间的价格水平对比',
-      left: 'center',
-      top: 10,
-      textStyle: {
-        fontSize: 16,
-        fontWeight: 'bold'
-      }
-    },
     tooltip: {
       trigger: 'axis',
       formatter: (params) => {

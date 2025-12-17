@@ -48,7 +48,7 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>营销策略效果对比</span>
+          <span class="chart-title">营销策略效果对比</span>
           <el-button type="primary" :loading="loading" @click="loadAll">重新加载</el-button>
         </div>
       </template>
@@ -72,7 +72,7 @@
     <el-card shadow="hover" class="section-card">
       <template #header>
         <div class="card-header">
-          <span>营销覆盖率与效果结构</span>
+          <span class="chart-title">营销覆盖率与效果结构</span>
         </div>
       </template>
       <el-row :gutter="16">
@@ -423,6 +423,12 @@ const handleResize = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-right: 12px;
 }
 .inner-card {
   margin-bottom: 12px;
