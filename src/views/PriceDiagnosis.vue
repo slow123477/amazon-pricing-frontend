@@ -5,6 +5,9 @@
         <div class="card-header">
           <span><el-icon><Search /></el-icon> 实时价格诊断</span>
         </div>
+        <div class="card-subtitle">
+          面向单个商品的价格健康体检，对比历史与竞品价格，给出诊断标签和优化建议。
+        </div>
       </template>
       <el-form :model="diagnosisForm" label-width="120px" class="diagnosis-form">
         <el-row :gutter="20">
@@ -202,28 +205,6 @@
           </el-card>
         </el-col>
       </el-row>
-
-      <el-row :gutter="20" v-if="diagnosisResult" class="charts-row">
-        <!-- 5. 价格策略效果对比（漏斗图） -->
-        <el-col :xs="24" :sm="24" :md="12" :lg="12">
-          <el-card v-if="diagnosisResult.priceSuggestions" shadow="never" class="chart-card">
-            <template #header>
-              <span class="result-title">价格策略效果对比</span>
-            </template>
-            <div ref="strategyComparisonChart" style="width: 100%; height: 350px;"></div>
-          </el-card>
-        </el-col>
-
-        <!-- 6. 价格区间分布（树状图） -->
-        <el-col :xs="24" :sm="24" :md="12" :lg="12">
-          <el-card v-if="diagnosisResult.priceRangeDistribution" shadow="never" class="chart-card">
-            <template #header>
-              <span class="result-title">价格区间分布</span>
-            </template>
-            <div ref="priceTreemapChart" style="width: 100%; height: 350px;"></div>
-          </el-card>
-        </el-col>
-      </el-row>
     </el-card>
   </div>
 </template>
@@ -247,8 +228,6 @@ const priceDistributionChart = ref(null)
 const priceSensitivityChart = ref(null)
 const priceImpactChart = ref(null)
 const competitivenessChart = ref(null)
-const strategyComparisonChart = ref(null)
-const priceTreemapChart = ref(null)
 const route = useRoute()
 const hasPrefilledFromRoute = ref(false)
 
@@ -256,8 +235,6 @@ let priceDistributionChartInstance = null
 let priceSensitivityChartInstance = null
 let priceImpactChartInstance = null
 let competitivenessChartInstance = null
-let strategyComparisonChartInstance = null
-let priceTreemapChartInstance = null
 
 // 加载分类列表
 const loadCategories = async () => {
@@ -371,14 +348,7 @@ const disposeAllCharts = () => {
     competitivenessChartInstance.dispose()
     competitivenessChartInstance = null
   }
-  if (strategyComparisonChartInstance) {
-    strategyComparisonChartInstance.dispose()
-    strategyComparisonChartInstance = null
-  }
-  if (priceTreemapChartInstance) {
-    priceTreemapChartInstance.dispose()
-    priceTreemapChartInstance = null
-  }
+  // 已精简的策略对比和区间树图不再渲染
 }
 
 // 渲染所有图表
@@ -387,8 +357,6 @@ const renderAllCharts = () => {
   renderPriceSensitivityChart()
   renderPriceImpactChart()
   renderCompetitivenessChart()
-  renderStrategyComparisonChart()
-  renderPriceTreemapChart()
 }
 
 // 获取诊断结果的标签类型
@@ -856,176 +824,6 @@ const renderCompetitivenessChart = () => {
   }
 
   competitivenessChartInstance.setOption(option)
-}
-
-// 5. 渲染价格策略效果对比图（漏斗图）
-const renderStrategyComparisonChart = () => {
-  if (!diagnosisResult.value || !diagnosisResult.value.priceSuggestions || !strategyComparisonChart.value) {
-    return
-  }
-
-  if (strategyComparisonChartInstance) {
-    strategyComparisonChartInstance.dispose()
-  }
-
-  strategyComparisonChartInstance = echarts.init(strategyComparisonChart.value)
-
-  const suggestions = diagnosisResult.value.priceSuggestions
-  const currentPrice = diagnosisResult.value.currentPrice
-  const avgPrice = diagnosisResult.value.avgPrice
-
-  // 计算各策略的预期效果（简化模型）
-  const strategies = [
-    {
-      name: '保守策略',
-      price: suggestions['保守'],
-      salesImpact: currentPrice > suggestions['保守'] ? 5 : -3, // 降价提升销量，涨价降低销量
-      profitImpact: currentPrice > suggestions['保守'] ? -2 : 8 // 降价降低利润，涨价提升利润
-    },
-    {
-      name: '适中策略',
-      price: suggestions['适中'],
-      salesImpact: currentPrice > suggestions['适中'] ? 10 : -5,
-      profitImpact: currentPrice > suggestions['适中'] ? -5 : 5
-    },
-    {
-      name: '激进策略',
-      price: suggestions['激进'],
-      salesImpact: currentPrice > suggestions['激进'] ? 15 : -8,
-      profitImpact: currentPrice > suggestions['激进'] ? -8 : 12
-    }
-  ]
-
-  const option = {
-    title: {
-      text: '三种价格策略效果对比',
-      left: 'center',
-      top: '5%',
-      textStyle: { fontSize: 14 }
-    },
-    tooltip: {
-      trigger: 'item',
-      formatter: (params) => {
-        const strategy = strategies.find(s => s.name === params.name)
-        return `${params.name}<br/>价格: $${strategy.price.toFixed(2)}<br/>预期销量变化: ${strategy.salesImpact > 0 ? '+' : ''}${strategy.salesImpact}%<br/>预期利润变化: ${strategy.profitImpact > 0 ? '+' : ''}${strategy.profitImpact}%`
-      }
-    },
-    legend: {
-      data: strategies.map(s => s.name),
-      top: '10%'
-    },
-    series: [{
-      name: '策略效果',
-      type: 'funnel',
-      left: '10%',
-      top: '20%',
-      bottom: '10%',
-      width: '80%',
-      min: 0,
-      max: 100,
-      minSize: '0%',
-      maxSize: '100%',
-      sort: 'descending',
-      gap: 2,
-      label: {
-        show: true,
-        position: 'inside',
-        formatter: (params) => `${params.name}\n$${Number(params.value).toFixed(2)}`
-      },
-      labelLine: {
-        length: 10,
-        lineStyle: {
-          width: 1,
-          type: 'solid'
-        }
-      },
-      itemStyle: {
-        borderColor: '#fff',
-        borderWidth: 1
-      },
-      emphasis: {
-        label: {
-          fontSize: 16
-        }
-      },
-      data: strategies.map(s => ({
-        value: Number((s.price || 0).toFixed(2)),
-        name: s.name,
-        itemStyle: {
-          color: s.name === '保守策略' ? '#909399' : s.name === '适中策略' ? '#67C23A' : '#E6A23C'
-        }
-      }))
-    }]
-  }
-
-  strategyComparisonChartInstance.setOption(option)
-}
-
-// 6. 渲染价格区间分布图（饼图）
-const renderPriceTreemapChart = () => {
-  if (!diagnosisResult.value || !diagnosisResult.value.priceRangeDistribution || !priceTreemapChart.value) {
-    return
-  }
-
-  if (priceTreemapChartInstance) {
-    priceTreemapChartInstance.dispose()
-  }
-
-  priceTreemapChartInstance = echarts.init(priceTreemapChart.value)
-
-  const distribution = diagnosisResult.value.priceRangeDistribution
-  const currentPrice = diagnosisResult.value.currentPrice
-  const priceMin = diagnosisResult.value.priceMin
-  const priceMax = diagnosisResult.value.priceMax
-  const colorPalette = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#9B59B6', '#1ABC9C']
-
-  const option = {
-    title: {
-      text: '价格区间占比（饼图）',
-      left: 'center',
-      top: '5%',
-      textStyle: { fontSize: 14 }
-    },
-    tooltip: {
-      trigger: 'item',
-      formatter: (params) => {
-        const percent = params.percent?.toFixed(1) ?? 0
-        return `${params.name}<br/>商品数量: ${params.value} 件<br/>占比: ${percent}%`
-      }
-    },
-    legend: {
-      orient: 'vertical',
-      right: 10,
-      top: 'middle',
-      formatter: (name) => name
-    },
-    series: [{
-      name: '价格区间',
-      type: 'pie',
-      radius: ['40%', '65%'],
-      center: ['40%', '55%'],
-      label: {
-        formatter: '{b}\n{c}件 ({d}%)'
-      },
-      data: distribution.map((item, index) => {
-        const range = item.priceRange
-        const isCurrentRange = getCurrentPriceRange(currentPrice) === range
-        const label = formatPriceRangeLabel(range)
-        const baseColor = colorPalette[index % colorPalette.length]
-        return {
-          name: label,
-          value: item.count,
-          itemStyle: {
-            color: isCurrentRange ? '#FF9F43' : baseColor,
-            borderColor: isCurrentRange ? '#FF6F00' : '#ffffff',
-            borderWidth: isCurrentRange ? 2 : 1
-          }
-        }
-      })
-    }]
-  }
-
-  priceTreemapChartInstance.setOption(option)
 }
 
 // 监听诊断结果变化，更新图表

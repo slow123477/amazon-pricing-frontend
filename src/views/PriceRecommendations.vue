@@ -1,5 +1,17 @@
 <template>
   <div class="price-recommendations">
+    <!-- 功能说明 -->
+    <el-card shadow="hover" class="intro-card">
+      <template #header>
+        <div class="card-header">
+          <span><el-icon><Document /></el-icon> 价格推荐</span>
+        </div>
+      </template>
+      <div class="card-subtitle">
+        面向批量商品的价格调整执行工具，基于诊断结果给出推荐价格、调整幅度和预计效果，可筛选、勾选并导出落地执行。
+      </div>
+    </el-card>
+
     <!-- 统计概览卡片 -->
     <el-row :gutter="20" class="overview-row">
       <el-col :xs="12" :sm="6" :md="6" :lg="6">
@@ -121,6 +133,9 @@
               <el-icon><Download /></el-icon> 导出数据
             </el-button>
           </div>
+        </div>
+        <div class="card-subtitle">
+          当前列表按商品聚合展示推荐价格和调整幅度，可通过筛选、勾选与导出功能，支持批量落地执行。
         </div>
       </template>
 

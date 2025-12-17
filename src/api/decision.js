@@ -29,6 +29,15 @@ export const decisionApi = {
       method: 'post',
       data
     })
+  },
+
+  // 新版决策分析
+  decisionAnalysis(data) {
+    return request({
+      url: '/decision/analysis',
+      method: 'post',
+      data
+    })
   }
 }
 

@@ -3,1765 +3,823 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><DataAnalysis /></el-icon> 决策中心</span>
+          <span><el-icon><DataAnalysis /></el-icon> 决策中心 · 新版场景模拟器</span>
+        </div>
+        <div class="card-subtitle">
+          输入价格/折扣/竞品价/广告/优惠券，结合新模型给出收益/销量预测与 6 张对比图。
         </div>
       </template>
 
-      <el-tabs v-model="activeTab" type="border-card">
-        <!-- 标签页1：价格诊断与优化 -->
-        <el-tab-pane label="价格诊断与优化" name="diagnosis">
-          <div class="tab-content">
-            <el-form :model="diagnosisForm" label-width="140px" class="diagnosis-form">
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="商品分类" required>
-                    <el-select v-model="diagnosisForm.category" placeholder="请选择分类" style="width: 100%">
-                      <el-option
-                        v-for="cat in categories"
-                        :key="cat"
-                        :label="cat"
-                        :value="cat"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="当前价格" required>
-                    <el-input-number
-                      v-model="diagnosisForm.currentPrice"
-                      :precision="2"
-                      :min="0"
-                      placeholder="请输入价格"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="商品标题（可选）">
-                    <el-input
-                      v-model="diagnosisForm.productTitle"
-                      placeholder="请输入商品标题"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-form-item>
-                <el-button type="primary" @click="handleDiagnosis" :loading="diagnosisLoading">
-                  <el-icon><Search /></el-icon> 开始诊断
-                </el-button>
-                <el-button @click="resetDiagnosis">清空</el-button>
-              </el-form-item>
-            </el-form>
+      <!-- 指标卡片 -->
+      <el-row :gutter="20" class="metric-row">
+        <el-col :span="6">
+          <el-card shadow="never" class="metric-card">
+            <div class="metric-label">预测销量</div>
+            <div class="metric-value primary">{{ (analysisCards.predictedSales || 0).toFixed(0) }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="metric-card">
+            <div class="metric-label">预测收益</div>
+            <div class="metric-value success">${{ (analysisCards.predictedRevenue || 0).toFixed(2) }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="metric-card">
+            <div class="metric-label">实际成交价</div>
+            <div class="metric-value warning">${{ (analysisCards.actualPrice || 0).toFixed(2) }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="metric-card">
+            <div class="metric-label">竞争价偏差</div>
+            <div class="metric-value info">{{ (analysisCards.priceGapPct || 0).toFixed(2) }}%</div>
+          </el-card>
+        </el-col>
+      </el-row>
 
-            <!-- 诊断结果 -->
-            <div v-if="diagnosisResult" class="result-section">
-              <el-row :gutter="20">
-                <el-col :span="24">
-                  <el-card shadow="never" class="result-card">
-                    <template #header>
-                      <span class="result-title">诊断结果</span>
-                    </template>
-                    <el-descriptions :column="3" border>
-                      <el-descriptions-item label="诊断结论">
-                        <el-tag :type="getDiagnosisTagType(diagnosisResult.diagnosis)" size="large">
-                          {{ diagnosisResult.diagnosis }}
-                        </el-tag>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="当前价格">
-                        <span style="color: #E6A23C; font-weight: 600; font-size: 16px">
-                          ${{ diagnosisResult.currentPrice?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测价格">
-                        <span style="color: #67C23A; font-weight: 600; font-size: 16px">
-                          ${{ diagnosisResult.predictedPrice?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="价格差距">
-                        <span :style="{ color: Math.abs(diagnosisResult.priceGap) > 10 ? '#F56C6C' : '#409EFF', fontWeight: '600' }">
-                          ${{ diagnosisResult.priceGap?.toFixed(2) }}
-                          ({{ diagnosisResult.priceGapPercent?.toFixed(2) }}%)
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测销量">
-                        <span style="color: #409EFF; font-weight: 600">
-                          {{ diagnosisResult.predictedSales?.toFixed(0) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测收益">
-                        <span style="color: #67C23A; font-weight: 600">
-                          ${{ diagnosisResult.predictedRevenue?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测评分">
-                        <span style="color: #E6A23C; font-weight: 600">
-                          {{ diagnosisResult.predictedRating?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="置信度">
-                        <el-progress
-                          :percentage="(diagnosisResult.confidence * 100)"
-                          :color="getConfidenceColor(diagnosisResult.confidence)"
-                          :format="() => (diagnosisResult.confidence * 100).toFixed(0) + '%'"
-                        />
-                      </el-descriptions-item>
-                      <el-descriptions-item label="优化建议" :span="3">
-                        <span style="color: #606266">{{ diagnosisResult.suggestion }}</span>
-                      </el-descriptions-item>
-                    </el-descriptions>
-                  </el-card>
-                </el-col>
-              </el-row>
-              
-              <!-- 图表区域：4张图表 -->
-              <el-row :gutter="20" class="charts-row" style="margin-top: 20px;">
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">价格分布直方图</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （显示同类商品价格分布，标记当前价格位置）
-                      </span>
-                    </template>
-                    <div ref="priceDistributionChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">价格竞争力雷达图</span>
-                    </template>
-                    <div ref="competitivenessRadarChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-              </el-row>
-              
-              <el-row :gutter="20" class="charts-row" style="margin-top: 20px;">
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">价格-销量关系曲线</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （不同价格下的销量预测，标注最优价格点）
-                      </span>
-                    </template>
-                    <div ref="diagnosisPriceSalesChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">价格调整影响预测图</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （价格上调/下调对销量和收益的影响）
-                      </span>
-                    </template>
-                    <div ref="priceImpactChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-              </el-row>
+      <!-- 表单 -->
+      <el-form :model="form" label-width="130px" class="form-section">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="商品名称">
+              <el-input v-model="form.productName" placeholder="选填" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="商品分类" required>
+              <el-select v-model="form.category" placeholder="请选择分类" filterable style="width: 100%">
+                <el-option v-for="cat in categories" :key="cat" :label="cat" :value="cat" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="商品价格" required>
+              <el-input-number v-model="form.price" :min="0" :precision="2" style="width: 100%" placeholder="0.00" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="常规折扣(%)">
+              <el-input-number v-model="form.discount" :min="0" :max="100" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="竞品均价" required>
+              <el-input-number v-model="form.competitorPrice" :min="0" :precision="2" style="width: 100%" placeholder="0.00" />
+            </el-form-item>
+          </el-col>
+        <el-col :span="8">
+          <div class="form-placeholder"></div>
+        </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="优惠券(%)">
+              <el-switch v-model="form.hasCoupon" />
+              <el-input-number
+                v-model="form.couponPct"
+                :disabled="!form.hasCoupon"
+                :min="0"
+                :max="80"
+                :precision="2"
+                style="width: 120px; margin-left: 12px"
+                placeholder="券折扣%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="广告投放(%)">
+              <el-switch v-model="form.hasAds" />
+              <el-input-number
+                v-model="form.adBudgetPct"
+                :disabled="!form.hasAds"
+                :min="0"
+                :max="80"
+                :precision="2"
+                style="width: 120px; margin-left: 12px"
+                placeholder="预算占比%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8" class="form-actions">
+            <el-button type="primary" :loading="loading" @click="handleAnalyze">
+              <el-icon><DataLine /></el-icon> 开始预测
+            </el-button>
+            <el-button @click="resetForm">清空</el-button>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- 诊断结果卡片 -->
+      <el-card v-if="diagnosisData" shadow="never" class="diagnosis-card">
+        <template #header>
+          <span class="result-title">价格诊断</span>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="分类">{{ diagnosisData.category }}</el-descriptions-item>
+          <el-descriptions-item label="系统诊断">
+            <el-tag :type="getDiagnosisTagType(diagnosisData.diagnosis)">
+              {{ diagnosisData.diagnosis }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="当前商品价格">
+            <span class="price-highlight">${{ (diagnosisData.currentPrice || 0).toFixed(2) }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="实际成交价">
+            <span :class="diagnosisData.discount > 30 ? 'price-danger' : 'actual-price-highlight'">
+              ${{ (diagnosisData.actualPrice || 0).toFixed(2) }}
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="竞品均价">
+            <span class="competitor-price-highlight">${{ (diagnosisData.competitorPrice || 0).toFixed(2) }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="价格差距">
+            <span :class="diagnosisData.priceGap > 0 ? 'gap-negative' : 'gap-positive'">
+              {{ diagnosisData.priceGap > 0 ? '+' : '' }}${{ (diagnosisData.priceGap || 0).toFixed(2) }}
+              ({{ diagnosisData.priceGap > 0 ? '+' : '' }}{{ (diagnosisData.priceGapPercent || 0).toFixed(1) }}%)
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="当前折扣">
+            <span :class="diagnosisData.discount > 30 ? 'price-danger' : (diagnosisData.discount > 20 ? 'price-warning' : '')">
+              {{ (diagnosisData.discount || 0).toFixed(2) }}%
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="营销策略">
+            <div style="display: flex; gap: 8px;">
+              <el-tag v-if="diagnosisData.hasCoupon" type="success" size="small">
+                优惠券 {{ diagnosisData.couponPct.toFixed(1) }}%
+              </el-tag>
+              <el-tag v-if="diagnosisData.hasAds" type="warning" size="small">
+                广告 {{ diagnosisData.adBudgetPct.toFixed(1) }}%
+              </el-tag>
+              <el-tag v-if="!diagnosisData.hasCoupon && !diagnosisData.hasAds" type="info" size="small">
+                无促销
+              </el-tag>
             </div>
-          </div>
-        </el-tab-pane>
-
-        <!-- 标签页2：销量预测与策略 -->
-        <el-tab-pane label="销量预测与策略" name="sales">
-          <div class="tab-content">
-            <el-form :model="salesForm" label-width="140px" class="sales-form">
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="商品分类" required>
-                    <el-select v-model="salesForm.category" placeholder="请选择分类" style="width: 100%">
-                      <el-option
-                        v-for="cat in categories"
-                        :key="cat"
-                        :label="cat"
-                        :value="cat"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="价格" required>
-                    <el-input-number
-                      v-model="salesForm.price"
-                      :precision="2"
-                      :min="0"
-                      placeholder="请输入价格"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="折扣(%)">
-                    <el-input-number
-                      v-model="salesForm.discount"
-                      :precision="1"
-                      :min="0"
-                      :max="100"
-                      placeholder="请输入折扣"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-form-item>
-                <el-button type="primary" @click="handleSalesPrediction" :loading="salesLoading">
-                  <el-icon><TrendCharts /></el-icon> 开始预测
-                </el-button>
-                <el-button @click="resetSales">清空</el-button>
-              </el-form-item>
-            </el-form>
-
-            <!-- 预测结果 -->
-            <div v-if="salesResult" class="result-section">
-              <!-- 当前预测和最优策略 -->
-              <el-row :gutter="20" style="margin-bottom: 20px">
-                <el-col :span="12">
-                  <el-card shadow="never" class="result-card">
-                    <template #header>
-                      <span class="result-title">当前策略预测</span>
-                    </template>
-                    <el-descriptions :column="1" border>
-                      <el-descriptions-item label="价格">
-                        ${{ salesResult.currentPrediction?.price?.toFixed(2) }}
-                      </el-descriptions-item>
-                      <el-descriptions-item label="折扣">
-                        {{ salesResult.currentPrediction?.discount?.toFixed(1) }}%
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测销量">
-                        <span style="color: #409EFF; font-weight: 600; font-size: 18px">
-                          {{ salesResult.currentPrediction?.predictedSales?.toFixed(0) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测收益">
-                        <span style="color: #67C23A; font-weight: 600; font-size: 18px">
-                          ${{ salesResult.currentPrediction?.predictedRevenue?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                    </el-descriptions>
-                  </el-card>
-                </el-col>
-                <el-col :span="12">
-                  <el-card shadow="never" class="result-card">
-                    <template #header>
-                      <span class="result-title">最优策略推荐</span>
-                    </template>
-                    <el-descriptions :column="1" border>
-                      <el-descriptions-item label="推荐价格">
-                        <span style="color: #67C23A; font-weight: 600; font-size: 16px">
-                          ${{ salesResult.optimalStrategy?.price?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="推荐折扣">
-                        <span style="color: #67C23A; font-weight: 600; font-size: 16px">
-                          {{ salesResult.optimalStrategy?.discount?.toFixed(1) }}%
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测销量">
-                        <span style="color: #409EFF; font-weight: 600; font-size: 18px">
-                          {{ salesResult.optimalStrategy?.predictedSales?.toFixed(0) }}
-                        </span>
-                      </el-descriptions-item>
-                      <el-descriptions-item label="预测收益">
-                        <span style="color: #67C23A; font-weight: 600; font-size: 18px">
-                          ${{ salesResult.optimalStrategy?.predictedRevenue?.toFixed(2) }}
-                        </span>
-                      </el-descriptions-item>
-                    </el-descriptions>
-                  </el-card>
-                </el-col>
-              </el-row>
-
-              <!-- 图表 -->
-              <el-row :gutter="20">
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">价格-销量关系曲线</span>
-                    </template>
-                    <div ref="priceSalesChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">折扣-销量关系曲线</span>
-                    </template>
-                    <div ref="discountSalesChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-              </el-row>
+          </el-descriptions-item>
+          <el-descriptions-item label="综合建议" :span="2">
+            <div class="suggestion-text">{{ diagnosisData.suggestion }}</div>
+          </el-descriptions-item>
+          <el-descriptions-item label="预计效果" :span="2">
+            <span class="impact-text">{{ diagnosisData.salesImpact }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+        
+        <!-- 详细策略建议（可展开） -->
+        <el-collapse v-if="diagnosisData.discountSuggestion || diagnosisData.couponSuggestion || diagnosisData.adSuggestion" 
+                     style="margin-top: 16px" accordion>
+          <el-collapse-item title="查看详细策略建议" name="1">
+            <div class="detail-suggestions">
+              <div class="suggestion-item" v-if="diagnosisData.discountSuggestion">
+                <el-icon color="#409eff"><Discount /></el-icon>
+                <span class="suggestion-label">折扣策略：</span>
+                <span class="suggestion-content">{{ diagnosisData.discountSuggestion }}</span>
+              </div>
+              <div class="suggestion-item" v-if="diagnosisData.couponSuggestion">
+                <el-icon color="#67c23a"><Ticket /></el-icon>
+                <span class="suggestion-label">优惠券策略：</span>
+                <span class="suggestion-content">{{ diagnosisData.couponSuggestion }}</span>
+              </div>
+              <div class="suggestion-item" v-if="diagnosisData.adSuggestion">
+                <el-icon color="#e6a23c"><Promotion /></el-icon>
+                <span class="suggestion-label">广告策略：</span>
+                <span class="suggestion-content">{{ diagnosisData.adSuggestion }}</span>
+              </div>
             </div>
-          </div>
-        </el-tab-pane>
+          </el-collapse-item>
+        </el-collapse>
+      </el-card>
 
-        <!-- 标签页3：场景模拟器 -->
-        <el-tab-pane label="场景模拟器" name="simulation">
-          <div class="tab-content">
-            <el-form :model="simulationForm" label-width="140px" class="simulation-form">
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="商品分类" required>
-                    <el-select v-model="simulationForm.category" placeholder="请选择分类" style="width: 100%">
-                      <el-option
-                        v-for="cat in categories"
-                        :key="cat"
-                        :label="cat"
-                        :value="cat"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="基础价格" required>
-                    <el-input-number
-                      v-model="simulationForm.basePrice"
-                      :precision="2"
-                      :min="0"
-                      placeholder="请输入基础价格"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="基础折扣(%)">
-                    <el-input-number
-                      v-model="simulationForm.baseDiscount"
-                      :precision="1"
-                      :min="0"
-                      :max="100"
-                      placeholder="请输入折扣"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-alert
-                title="提示"
-                type="info"
-                :closable="false"
-                style="margin-bottom: 20px"
-              >
-                场景模拟将生成多个价格×折扣组合的预测结果，预计需要30秒以内，请耐心等待。
-              </el-alert>
-              <el-form-item>
-                <el-button type="primary" @click="handleSimulation" :loading="simulationLoading">
-                  <el-icon><DataLine /></el-icon> 开始模拟
-                </el-button>
-                <el-button @click="resetSimulation">清空</el-button>
-              </el-form-item>
-            </el-form>
-
-            <!-- 交互式调整器（实时预测）- 只在模拟成功后显示 -->
-            <div v-if="simulationResult" class="interactive-simulator" style="margin-top: 20px;">
-              <el-card shadow="never" class="result-card">
-                <template #header>
-                  <span class="result-title">交互式价格调整模拟器</span>
-                  <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                    （拖动滑块实时查看预测结果）
+      <!-- 推荐策略（诊断风格） -->
+      <div v-if="recommendations.length" class="strategy-section">
+        <div class="section-header">
+          <h3>策略推荐</h3>
+        </div>
+        <el-row :gutter="20">
+          <el-col v-for="rec in recommendations" :key="rec.label" :span="8">
+            <el-card shadow="hover" class="strategy-card">
+              <div class="strategy-header">
+                <el-tag :type="rec.tagType" size="large">{{ rec.label }}</el-tag>
+                <el-tag size="small" :type="getRiskTagType(rec.riskLevel)" style="margin-left: 8px">{{ rec.riskLevel }}</el-tag>
+              </div>
+              <div class="strategy-desc">{{ rec.description }}</div>
+              
+              <el-divider style="margin: 16px 0" />
+              
+              <div class="strategy-detail">
+                <div class="detail-row">
+                  <span class="detail-label">建议价格</span>
+                  <span class="detail-value price-value">${{ (rec.price || 0).toFixed(2) }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">建议折扣</span>
+                  <span class="detail-value">{{ (rec.discount || 0).toFixed(2) }}%</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">预测销量</span>
+                  <span class="detail-value sales-value">{{ (rec.predictedSales || 0).toFixed(0) }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">预测收益</span>
+                  <span class="detail-value revenue-value">${{ (rec.predictedRevenue || 0).toFixed(2) }}</span>
+                </div>
+                
+                <el-divider style="margin: 12px 0" />
+                
+                <div class="detail-row">
+                  <span class="detail-label">优惠券</span>
+                  <span class="detail-value">
+                    <el-tag v-if="rec.hasCoupon" type="success" size="small">{{ rec.couponPct.toFixed(2) }}%</el-tag>
+                    <el-tag v-else type="info" size="small">未启用</el-tag>
                   </span>
-                </template>
-                <el-row :gutter="20">
-                  <el-col :span="12">
-                    <el-form-item label="价格调整">
-                      <el-slider
-                        v-model="interactivePrice"
-                        :min="simulationForm.basePrice * 0.7"
-                        :max="simulationForm.basePrice * 1.3"
-                        :step="1"
-                        :format-tooltip="(val) => `$${val.toFixed(2)}`"
-                        @change="updateInteractivePrediction"
-                      />
-                      <div style="text-align: center; margin-top: 10px;">
-                        <span style="font-size: 18px; font-weight: 600; color: #409EFF">
-                          ${{ interactivePrice.toFixed(2) }}
-                        </span>
-                      </div>
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="12">
-                    <el-form-item label="折扣调整">
-                      <el-slider
-                        v-model="interactiveDiscount"
-                        :min="0"
-                        :max="50"
-                        :step="1"
-                        :format-tooltip="(val) => `${val}%`"
-                        @change="updateInteractivePrediction"
-                      />
-                      <div style="text-align: center; margin-top: 10px;">
-                        <span style="font-size: 18px; font-weight: 600; color: #E6A23C">
-                          {{ interactiveDiscount.toFixed(1) }}%
-                        </span>
-                      </div>
-                    </el-form-item>
-                  </el-col>
-                </el-row>
-                
-                <!-- 实时预测结果 -->
-                <el-row :gutter="20" style="margin-top: 20px;">
-                  <el-col :span="8">
-                    <el-card shadow="hover" class="stat-card">
-                      <div class="stat-item">
-                        <div class="stat-label">预测销量</div>
-                        <div class="stat-value" style="color: #409EFF">
-                          {{ interactivePrediction.predictedSales?.toFixed(0) || '计算中...' }}
-                        </div>
-                      </div>
-                    </el-card>
-                  </el-col>
-                  <el-col :span="8">
-                    <el-card shadow="hover" class="stat-card">
-                      <div class="stat-item">
-                        <div class="stat-label">预测收益</div>
-                        <div class="stat-value" style="color: #67C23A">
-                          ${{ interactivePrediction.predictedRevenue?.toFixed(2) || '0.00' }}
-                        </div>
-                      </div>
-                    </el-card>
-                  </el-col>
-                  <el-col :span="8">
-                    <el-card shadow="hover" class="stat-card">
-                      <div class="stat-item">
-                        <div class="stat-label">实际售价</div>
-                        <div class="stat-value" style="color: #E6A23C">
-                          ${{ (interactivePrice * (1 - interactiveDiscount / 100)).toFixed(2) }}
-                        </div>
-                      </div>
-                    </el-card>
-                  </el-col>
-                </el-row>
-              </el-card>
-            </div>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">广告投放</span>
+                  <span class="detail-value">
+                    <el-tag v-if="rec.hasAds" type="warning" size="small">{{ rec.adBudgetPct.toFixed(2) }}%</el-tag>
+                    <el-tag v-else type="info" size="small">未启用</el-tag>
+                  </span>
+                </div>
+              </div>
+              
+              <el-button type="primary" size="small" style="width: 100%; margin-top: 16px" @click="applyStrategy(rec)">
+                应用此策略
+              </el-button>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
 
-            <!-- 模拟结果 -->
-            <div v-if="simulationResult" class="result-section">
-              <!-- 图表区域 -->
-              <el-row :gutter="20" class="mb-4">
-                <!-- 收益变化瀑布图 -->
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">收益变化瀑布图</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （价格和折扣调整对收益的影响）
-                      </span>
-                    </template>
-                    <div ref="revenueWaterfallChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-                
-                <!-- 风险-收益散点图 -->
-                <el-col :span="12">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">风险-收益散点图</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （不同策略的风险-收益分布，右上角为最优区域）
-                      </span>
-                    </template>
-                    <div ref="riskRewardChartRef" style="width: 100%; height: 400px;"></div>
-                  </el-card>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="20" class="mb-4">
-                <!-- 收益预测热力图 -->
-                <el-col :span="24">
-                  <el-card shadow="never" class="chart-card">
-                    <template #header>
-                      <span class="result-title">收益预测热力图</span>
-                      <span style="font-size: 12px; color: #909399; margin-left: 10px;">
-                        （颜色越深表示收益越高，鼠标悬停查看详情）
-                      </span>
-                    </template>
-                    <div ref="simulationHeatmapRef" style="width: 100%; height: 500px;"></div>
-                  </el-card>
-                </el-col>
-              </el-row>
-            </div>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
+      <!-- 六张图表 3x2 -->
+      <div v-if="chartsReady" class="chart-grid">
+        <el-row :gutter="20" class="mb-4">
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">价格竞争力分析</span></template>
+              <div ref="priceSalesRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">折扣-销量/收益</span></template>
+              <div ref="discountCurveRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20" class="mb-4">
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">策略对比雷达图</span></template>
+              <div ref="riskRewardRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">策略效果对比</span></template>
+              <div ref="waterfallRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">竞争价差热力图</span></template>
+              <div ref="heatmapRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="never" class="chart-card">
+              <template #header><span class="result-title">价格带销量结构</span></template>
+              <div ref="priceBandRef" style="width: 100%; height: 320px"></div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { decisionApi } from '@/api/decision'
 import { categoryApi } from '@/api/category'
 import { ElMessage } from 'element-plus'
-import { DataAnalysis, Search, TrendCharts, DataLine } from '@element-plus/icons-vue'
+import { DataAnalysis, DataLine, Discount, Ticket, Promotion } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
-const activeTab = ref('diagnosis')
 const categories = ref([])
 
-// 价格诊断表单
-const diagnosisForm = ref({
+const form = ref({
+  productName: '',
   category: '',
-  currentPrice: null,
-  productTitle: ''
+  price: 0,
+  discount: 0,
+  competitorPrice: 0,
+  hasCoupon: false,
+  couponPct: 0,
+  hasAds: false,
+  adBudgetPct: 0
 })
-const diagnosisLoading = ref(false)
-const diagnosisResult = ref(null)
-const diagnosisPriceSalesChartRef = ref(null)
-const competitivenessRadarChartRef = ref(null)
-const priceDistributionChartRef = ref(null)
-const priceImpactChartRef = ref(null)
-let diagnosisPriceSalesChart = null
-let competitivenessRadarChart = null
-let priceDistributionChart = null
-let priceImpactChart = null
 
-// 销量预测表单
-const salesForm = ref({
-  category: '',
-  price: null,
-  discount: 20.0
-})
-const salesLoading = ref(false)
-const salesResult = ref(null)
-const priceSalesChartRef = ref(null)
-const discountSalesChartRef = ref(null)
+const loading = ref(false)
+const analysisCards = ref({})
+const diagnosisData = ref(null)
+const recommendations = ref([])
+const charts = ref({})
+const chartsReady = ref(false)
+
+const priceSalesRef = ref(null)
+const discountCurveRef = ref(null)
+const riskRewardRef = ref(null)
+const waterfallRef = ref(null)
+const heatmapRef = ref(null)
+const priceBandRef = ref(null)
+
 let priceSalesChart = null
-let discountSalesChart = null
-
-// 场景模拟表单
-const simulationForm = ref({
-  category: '',
-  basePrice: null,
-  baseDiscount: 20.0
-})
-const simulationLoading = ref(false)
-const simulationResult = ref(null)
-const simulationHeatmapRef = ref(null)
-const revenueWaterfallChartRef = ref(null)
-const riskRewardChartRef = ref(null)
-let simulationHeatmapChart = null
-let revenueWaterfallChart = null
+let discountCurveChart = null
 let riskRewardChart = null
+let waterfallChart = null
+let heatmapChart = null
+let priceBandChart = null
 
-// 交互式调整器
-const interactivePrice = ref(0)
-const interactiveDiscount = ref(20.0)
-const interactivePrediction = ref({
-  predictedSales: null,
-  predictedRevenue: null
-})
-
-// 加载分类列表
 const loadCategories = async () => {
   try {
     const data = await categoryApi.getCategoryStats()
-    console.log('分类数据:', data)
-    if (data && Array.isArray(data)) {
+    if (Array.isArray(data)) {
       categories.value = data.map(item => item.productCategory).filter(Boolean)
-      console.log('提取的分类列表:', categories.value)
-      if (categories.value.length === 0) {
-        ElMessage.warning('未找到分类数据，请检查数据库')
-      }
-    } else {
-      console.error('分类数据格式错误:', data)
-      ElMessage.error('分类数据格式错误')
     }
   } catch (error) {
     console.error('加载分类失败:', error)
-    ElMessage.error('加载分类列表失败: ' + (error.message || '未知错误'))
+    ElMessage.error('加载分类列表失败')
   }
 }
 
-// 价格诊断
-const handleDiagnosis = async () => {
-  if (!diagnosisForm.value.category || !diagnosisForm.value.currentPrice) {
-    ElMessage.warning('请填写完整的诊断信息')
+// 根据风险等级返回标签类型
+const getRiskTagType = (riskLevel) => {
+  if (riskLevel === '低风险') return 'success'
+  if (riskLevel === '中风险') return 'warning'
+  return 'danger'
+}
+
+// 根据诊断结果返回标签类型
+const getDiagnosisTagType = (diagnosis) => {
+  if (diagnosis === '价格合理') return 'success'
+  if (diagnosis === '价格略高' || diagnosis === '价格略低') return 'warning'
+  return 'danger'
+}
+
+const resetForm = () => {
+  form.value = {
+    productName: '',
+    category: '',
+    price: 0,
+    discount: 0,
+    competitorPrice: 0,
+    hasCoupon: false,
+    couponPct: 0,
+    hasAds: false,
+    adBudgetPct: 0,
+    goal: 'balanced' // 兼容后端默认，前端不再展示
+  }
+  analysisCards.value = {}
+  diagnosisData.value = null
+  recommendations.value = []
+  charts.value = {}
+  chartsReady.value = false
+  disposeCharts()
+}
+
+const handleAnalyze = async () => {
+  if (!form.value.category || !form.value.price || !form.value.competitorPrice) {
+    ElMessage.warning('请填写分类、价格、竞品均价')
     return
   }
-
-  diagnosisLoading.value = true
+  loading.value = true
   try {
-    const response = await decisionApi.diagnosePrice({
-      category: diagnosisForm.value.category,
-      currentPrice: diagnosisForm.value.currentPrice,
-      productTitle: diagnosisForm.value.productTitle || undefined
+    const resp = await decisionApi.decisionAnalysis({
+      productName: form.value.productName,
+      category: form.value.category,
+      price: form.value.price,
+      discount: form.value.discount,
+      competitorPrice: form.value.competitorPrice,
+      hasCoupon: form.value.hasCoupon,
+      couponPct: form.value.couponPct,
+      hasAds: form.value.hasAds,
+      adBudgetPct: form.value.adBudgetPct
     })
-
-    // request.js 拦截器已经提取了 res.data，所以 response 直接是数据对象
-    if (response) {
-      diagnosisResult.value = response
-      console.log('诊断结果:', response)
-      ElMessage.success('诊断完成')
-      // 渲染图表（使用估算值，不调用API）
+    if (resp) {
+      analysisCards.value = resp.cards || {}
+      diagnosisData.value = resp.diagnosis || null
+      recommendations.value = resp.recommendations || []
+      charts.value = resp.charts || {}
+      chartsReady.value = true
       await nextTick()
-      renderDiagnosisCharts()
+      renderCharts()
+      ElMessage.success('预测完成')
     } else {
-      ElMessage.error('诊断失败：未返回数据')
+      ElMessage.error('预测失败')
     }
-  } catch (error) {
-    console.error('诊断失败:', error)
-    ElMessage.error('诊断失败: ' + (error.message || '未知错误'))
-  } finally {
-    diagnosisLoading.value = false
-  }
-}
-
-const resetDiagnosis = () => {
-  diagnosisForm.value = {
-    category: '',
-    currentPrice: null,
-    productTitle: ''
-  }
-  diagnosisResult.value = null
-  if (diagnosisPriceSalesChart) {
-    diagnosisPriceSalesChart.dispose()
-    diagnosisPriceSalesChart = null
-  }
-  if (competitivenessRadarChart) {
-    competitivenessRadarChart.dispose()
-    competitivenessRadarChart = null
-  }
-}
-
-// 渲染诊断图表
-const renderDiagnosisCharts = () => {
-  if (!diagnosisResult.value) return
-
-  // 1. 价格分布直方图
-  renderPriceDistributionChart()
-  
-  // 2. 价格竞争力雷达图
-  renderCompetitivenessRadarChart()
-  
-  // 3. 价格-销量关系曲线（使用估算值，避免大量API调用）
-  renderPriceSalesCurveChart()
-  
-  // 4. 价格调整影响预测图
-  renderPriceImpactChart()
-}
-
-// 渲染价格分布图（箱线图 + 散点图）
-const renderPriceDistributionChart = () => {
-  if (!priceDistributionChartRef.value || !diagnosisResult.value) return
-
-  try {
-    if (priceDistributionChart) {
-      priceDistributionChart.dispose()
-    }
-    priceDistributionChart = echarts.init(priceDistributionChartRef.value)
-
-    const currentPrice = diagnosisResult.value.currentPrice
-    const predictedPrice = diagnosisResult.value.predictedPrice
-    
-    // 生成模拟价格数据（用于箱线图）
-    const minPrice = Math.min(currentPrice, predictedPrice) * 0.6
-    const maxPrice = Math.max(currentPrice, predictedPrice) * 1.4
-    const center = predictedPrice
-    const variance = (maxPrice - minPrice) / 4
-    
-    // 生成模拟价格点（用于显示分布）
-    const priceData = []
-    for (let i = 0; i < 100; i++) {
-      // 使用正态分布生成价格点
-      const u1 = Math.random()
-      const u2 = Math.random()
-      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-      const price = center + z * variance
-      if (price >= minPrice && price <= maxPrice) {
-        priceData.push(price)
-      }
-    }
-    priceData.sort((a, b) => a - b)
-    
-    // 计算箱线图数据（四分位数）
-    const q1Index = Math.floor(priceData.length * 0.25)
-    const medianIndex = Math.floor(priceData.length * 0.5)
-    const q3Index = Math.floor(priceData.length * 0.75)
-    const q1 = priceData[q1Index] || center * 0.85
-    const median = priceData[medianIndex] || center
-    const q3 = priceData[q3Index] || center * 1.15
-    const min = priceData[0] || minPrice
-    const max = priceData[priceData.length - 1] || maxPrice
-    
-    // 计算合理价格区间（Q1到Q3之间）
-    const reasonableMin = q1
-    const reasonableMax = q3
-
-    priceDistributionChart.setOption({
-      title: {
-        text: '同类商品价格分布分析',
-        left: 'center',
-        textStyle: { fontSize: 14 }
-      },
-      tooltip: {
-        trigger: 'item',
-        formatter: (params) => {
-          if (params.seriesName === '价格分布') {
-            return `价格: $${params.value.toFixed(2)}`
-          } else if (params.seriesName === '当前价格') {
-            return `当前价格: $${currentPrice.toFixed(2)}<br/>位置: ${currentPrice < reasonableMin ? '低于合理区间' : currentPrice > reasonableMax ? '高于合理区间' : '在合理区间内'}`
-          } else if (params.seriesName === '预测价格') {
-            return `预测价格: $${predictedPrice.toFixed(2)}<br/>位置: ${predictedPrice < reasonableMin ? '低于合理区间' : predictedPrice > reasonableMax ? '高于合理区间' : '在合理区间内'}`
-          } else {
-            return `${params.seriesName}: $${params.value.toFixed(2)}`
-          }
-        }
-      },
-      xAxis: {
-        type: 'value',
-        name: '价格 ($)',
-        nameLocation: 'middle',
-        nameGap: 30,
-        scale: true
-      },
-      yAxis: {
-        type: 'category',
-        data: ['价格分布'],
-        name: '商品分类'
-      },
-      series: [
-        {
-          name: '价格分布箱线图',
-          type: 'boxplot',
-          data: [[[min, q1, median, q3, max]]],
-          itemStyle: {
-            color: '#409EFF',
-            borderColor: '#1f77b4'
-          },
-          emphasis: {
-            itemStyle: {
-              borderColor: '#1f77b4',
-              borderWidth: 2
-            }
-          }
-        },
-        {
-          name: '价格分布',
-          type: 'scatter',
-          data: priceData.map(p => [p, 0]),
-          symbolSize: 4,
-          itemStyle: {
-            color: 'rgba(64, 158, 255, 0.3)'
-          },
-          yAxisIndex: 0
-        },
-        {
-          name: '当前价格',
-          type: 'scatter',
-          data: [[currentPrice, 0]],
-          symbolSize: 20,
-          symbol: 'pin',
-          itemStyle: {
-            color: '#F56C6C'
-          },
-          markLine: {
-            data: [
-              {
-                xAxis: currentPrice,
-                lineStyle: { color: '#F56C6C', width: 2, type: 'dashed' },
-                label: { 
-                  formatter: '当前价格',
-                  position: 'end',
-                  color: '#F56C6C'
-                }
-              }
-            ]
-          }
-        },
-        {
-          name: '预测价格',
-          type: 'scatter',
-          data: [[predictedPrice, 0]],
-          symbolSize: 20,
-          symbol: 'pin',
-          itemStyle: {
-            color: '#67C23A'
-          },
-          markLine: {
-            data: [
-              {
-                xAxis: predictedPrice,
-                lineStyle: { color: '#67C23A', width: 2, type: 'dashed' },
-                label: { 
-                  formatter: '预测价格',
-                  position: 'end',
-                  color: '#67C23A'
-                }
-              }
-            ]
-          }
-        },
-        {
-          name: '合理价格区间',
-          type: 'scatter',
-          data: [
-            [reasonableMin, 0],
-            [reasonableMax, 0]
-          ],
-          symbolSize: 0,
-          markArea: {
-            itemStyle: {
-              color: 'rgba(103, 194, 58, 0.1)'
-            },
-            data: [[
-              { xAxis: reasonableMin },
-              { xAxis: reasonableMax }
-            ]],
-            label: {
-              show: true,
-              position: 'inside',
-              formatter: '合理价格区间\n(Q1-Q3)',
-              color: '#67C23A',
-              fontSize: 12
-            }
-          }
-        }
-      ],
-      legend: {
-        data: ['价格分布箱线图', '当前价格', '预测价格', '合理价格区间'],
-        bottom: 0
-      },
-      grid: {
-        left: '15%',
-        right: '10%',
-        top: '15%',
-        bottom: '20%'
-      }
-    })
   } catch (e) {
-    console.error('渲染价格分布图失败:', e)
+    console.error(e)
+    ElMessage.error('预测失败: ' + (e.message || '未知错误'))
+  } finally {
+    loading.value = false
   }
 }
 
-// 渲染价格竞争力雷达图
-const renderCompetitivenessRadarChart = () => {
-  if (!competitivenessRadarChartRef.value || !diagnosisResult.value) return
+// 应用策略：将推荐策略的参数填入表单并重新预测
+const applyStrategy = async (strategy) => {
+  ElMessage.info(`正在应用"${strategy.label}"...`)
+  
+  // 更新表单参数
+  form.value.price = strategy.price || form.value.price
+  form.value.discount = strategy.discount || 0
+  form.value.hasCoupon = strategy.hasCoupon || false
+  form.value.couponPct = strategy.couponPct || 0
+  form.value.hasAds = strategy.hasAds || false
+  form.value.adBudgetPct = strategy.adBudgetPct || 0
+  
+  // 滚动到页面顶部，让用户看到表单参数变化
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  
+  // 等待UI更新和滚动完成
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  // 自动触发预测
+  await handleAnalyze()
+}
 
-  try {
-    if (competitivenessRadarChart) {
-      competitivenessRadarChart.dispose()
-    }
-    competitivenessRadarChart = echarts.init(competitivenessRadarChartRef.value)
+const renderCharts = () => {
+  renderPriceSales()
+  renderDiscountCurve()
+  renderRiskReward()
+  renderWaterfall()
+  renderHeatmap()
+  renderPriceBand()
+}
 
-    const currentPrice = diagnosisResult.value.currentPrice
-    const predictedPrice = diagnosisResult.value.predictedPrice
-    const priceGapPercent = diagnosisResult.value.priceGapPercent
-    const predictedRating = diagnosisResult.value.predictedRating
-    const predictedSales = diagnosisResult.value.predictedSales
-
-    // 计算竞争力指标
-    const priceCompetitiveness = Math.max(0, 100 - Math.abs(priceGapPercent) * 2)
-    const priceRationality = Math.max(0, 100 - Math.abs(priceGapPercent))
-    const marketPosition = (predictedPrice / currentPrice) * 50 + 50
-    const salesPotential = Math.min(100, predictedSales / 10)
-    const ratingInfluence = predictedRating * 20
-
-    competitivenessRadarChart.setOption({
-      title: {
-        text: '价格竞争力雷达图',
-        left: 'center',
-        textStyle: { fontSize: 14 }
-      },
-      tooltip: {},
-      radar: {
-        indicator: [
-          { name: '价格竞争力', max: 100 },
-          { name: '价格合理性', max: 100 },
-          { name: '市场定位', max: 100 },
-          { name: '销量潜力', max: 100 },
-          { name: '评分影响', max: 100 }
+const renderPriceSales = () => {
+  if (!priceSalesRef.value) return
+  priceSalesChart?.dispose()
+  priceSalesChart = echarts.init(priceSalesRef.value)
+  
+  // 计算雷达图各维度得分（0-100）
+  const currentPrice = form.value.price || 0
+  const competitorPrice = form.value.competitorPrice || currentPrice
+  const discount = form.value.discount || 0
+  const predictedSales = analysisCards.value.predictedSales || 0
+  const predictedRevenue = analysisCards.value.predictedRevenue || 0
+  
+  // 价格竞争力：价格越低于竞品越好（竞品价/当前价 * 50，最高100）
+  const priceCompetitiveness = competitorPrice > 0 
+    ? Math.min(100, Math.max(0, (competitorPrice / currentPrice) * 50))
+    : 50
+  
+  // 价格稳定性：折扣越低越稳定（100 - 折扣*2）
+  const priceStability = Math.max(0, 100 - discount * 2)
+  
+  // 市场定位：基于价格与竞品的关系（接近竞品得分高）
+  const priceGapPct = competitorPrice > 0 ? Math.abs((currentPrice - competitorPrice) / competitorPrice * 100) : 0
+  const marketPosition = Math.max(0, 100 - priceGapPct * 2)
+  
+  // 价格优势：折扣带来的竞争优势
+  const priceAdvantage = Math.min(100, discount * 3 + (competitorPrice > currentPrice ? 30 : 0))
+  
+  // 价格合理性：综合评估（折扣在10-25%之间最合理）
+  const discountReasonability = discount <= 25 
+    ? (discount >= 10 ? 100 : 60 + discount * 4)
+    : Math.max(0, 100 - (discount - 25) * 3)
+  
+  priceSalesChart.setOption({
+    title: {
+      text: '价格竞争力多维度分析',
+      left: 'center',
+      textStyle: { fontSize: 14 }
+    },
+    tooltip: {
+      trigger: 'item'
+    },
+    radar: {
+      indicator: [
+        { name: '价格竞争力', max: 100 },
+        { name: '价格稳定性', max: 100 },
+        { name: '市场定位', max: 100 },
+        { name: '价格优势', max: 100 },
+        { name: '价格合理性', max: 100 }
+      ],
+      center: ['50%', '55%'],
+      radius: '65%'
+    },
+    series: [{
+      name: '价格分析',
+      type: 'radar',
+      data: [{
+        value: [
+          priceCompetitiveness.toFixed(0),
+          priceStability.toFixed(0),
+          marketPosition.toFixed(0),
+          priceAdvantage.toFixed(0),
+          discountReasonability.toFixed(0)
         ],
-        radius: '60%',
-        center: ['50%', '55%']
-      },
-      series: [{
-        name: '竞争力指标',
-        type: 'radar',
-        data: [{
-          value: [
-            priceCompetitiveness,
-            priceRationality,
-            marketPosition,
-            salesPotential,
-            ratingInfluence
-          ],
-          name: '当前商品'
-        }],
+        name: '当前策略',
         areaStyle: {
-          opacity: 0.6
+          color: 'rgba(64, 158, 255, 0.3)'
         },
         lineStyle: {
-          width: 2
+          color: '#409EFF'
         },
         itemStyle: {
           color: '#409EFF'
         }
       }]
-    })
-  } catch (e) {
-    console.error('渲染价格竞争力雷达图失败:', e)
-  }
-}
-
-// 渲染价格-销量关系曲线
-const renderPriceSalesCurveChart = () => {
-  if (!diagnosisPriceSalesChartRef.value || !diagnosisResult.value) return
-
-  try {
-    // 生成价格范围（当前价格的70%-130%）
-    const currentPrice = diagnosisResult.value.currentPrice
-    const predictedPrice = diagnosisResult.value.predictedPrice
-    const predictedSales = diagnosisResult.value.predictedSales || 300
-    const predictedRevenue = diagnosisResult.value.predictedRevenue || (predictedPrice * predictedSales)
-
-    const prices = []
-    const sales = []
-    const revenues = []
-
-    // 假设价格弹性为 -1.5（价格每增加1%，销量减少1.5%）
-    const priceElasticity = -1.5
-
-    for (let i = 0; i <= 6; i++) { // 7 points: 70%, 80%, ..., 130%
-      const price = currentPrice * (0.7 + i * 0.1)
-      prices.push(price.toFixed(2))
-
-      // 基于价格弹性估算销量（相对于预测价格）
-      const priceChangePercent = (price - predictedPrice) / predictedPrice
-      const salesChangePercent = priceChangePercent * priceElasticity
-      const estimatedSales = predictedSales * (1 + salesChangePercent)
-      const estimatedRevenue = price * estimatedSales
-
-      sales.push(Math.max(0, estimatedSales))
-      revenues.push(Math.max(0, estimatedRevenue))
-    }
-
-    if (diagnosisPriceSalesChart) {
-      diagnosisPriceSalesChart.dispose()
-    }
-    diagnosisPriceSalesChart = echarts.init(diagnosisPriceSalesChartRef.value)
-
-    diagnosisPriceSalesChart.setOption({
-      title: {
-        text: '价格-销量关系曲线',
-        left: 'center',
-        textStyle: { fontSize: 14 }
-      },
-      tooltip: {
-        trigger: 'axis',
-        formatter: function(params) {
-          let result = `价格: $${params[0].axisValue}<br/>`
-          params.forEach(param => {
-            result += `${param.seriesName}: ${param.value.toFixed(2)}<br/>`
-          })
-          return result
-        }
-      },
-      legend: {
-        data: ['销量', '收益'],
-        bottom: 0
-      },
-      xAxis: {
-        type: 'category',
-        data: prices,
-        name: '价格 ($)',
-        nameLocation: 'middle',
-        nameGap: 30
-      },
-      yAxis: [
-        {
-          type: 'value',
-          name: '销量',
-          position: 'left',
-          axisLabel: { formatter: '{value}' }
-        },
-        {
-          type: 'value',
-          name: '收益 ($)',
-          position: 'right',
-          axisLabel: { formatter: '{value}' }
-        }
-      ],
-      series: [
-        {
-          name: '销量',
-          type: 'line',
-          data: sales,
-          smooth: true,
-          yAxisIndex: 0,
-          itemStyle: { color: '#409EFF' },
-          markPoint: {
-            data: [
-              { coord: [prices.indexOf(predictedPrice.toFixed(2)), predictedSales], name: '最优价格点', itemStyle: { color: '#67C23A' } }
-            ]
-          }
-        },
-        {
-          name: '收益',
-          type: 'line',
-          data: revenues,
-          smooth: true,
-          yAxisIndex: 1,
-          itemStyle: { color: '#67C23A' }
-        }
-      ]
-    })
-  } catch (e) {
-    console.error('渲染价格-销量关系曲线失败:', e)
-  }
-}
-
-// 渲染价格调整影响预测图
-const renderPriceImpactChart = () => {
-  if (!priceImpactChartRef.value || !diagnosisResult.value) return
-
-  try {
-    if (priceImpactChart) {
-      priceImpactChart.dispose()
-    }
-    priceImpactChart = echarts.init(priceImpactChartRef.value)
-
-    const currentPrice = diagnosisResult.value.currentPrice
-    const predictedPrice = diagnosisResult.value.predictedPrice
-    const predictedSales = diagnosisResult.value.predictedSales || 300
-    const predictedRevenue = diagnosisResult.value.predictedRevenue || (predictedPrice * predictedSales)
-    
-    // 生成价格调整场景（-30% 到 +30%）
-    const adjustments = []
-    const salesChanges = []
-    const revenueChanges = []
-    
-    const priceElasticity = -1.5
-    
-    for (let i = -6; i <= 6; i++) { // -30% 到 +30%，步长 5%
-      const adjustmentPercent = i * 5
-      const adjustedPrice = currentPrice * (1 + adjustmentPercent / 100)
-      adjustments.push(adjustmentPercent)
-      
-      // 计算销量变化
-      const priceChangePercent = (adjustedPrice - predictedPrice) / predictedPrice
-      const salesChangePercent = priceChangePercent * priceElasticity
-      const estimatedSales = predictedSales * (1 + salesChangePercent)
-      const estimatedRevenue = adjustedPrice * estimatedSales
-      
-      salesChanges.push(((estimatedSales - predictedSales) / predictedSales * 100).toFixed(1))
-      revenueChanges.push(((estimatedRevenue - predictedRevenue) / predictedRevenue * 100).toFixed(1))
-    }
-
-    priceImpactChart.setOption({
-      title: {
-        text: '价格调整影响预测',
-        left: 'center',
-        textStyle: { fontSize: 14 }
-      },
-      tooltip: {
-        trigger: 'axis',
-        formatter: (params) => {
-          let result = `价格调整: ${params[0].axisValue}%<br/>`
-          params.forEach(param => {
-            result += `${param.seriesName}: ${param.value}%<br/>`
-          })
-          return result
-        }
-      },
-      legend: {
-        data: ['销量变化率', '收益变化率'],
-        bottom: 0
-      },
-      xAxis: {
-        type: 'category',
-        data: adjustments.map(a => a + '%'),
-        name: '价格调整幅度',
-        nameLocation: 'middle',
-        nameGap: 30
-      },
-      yAxis: {
-        type: 'value',
-        name: '变化率 (%)',
-        axisLabel: { formatter: '{value}%' }
-      },
-      series: [
-        {
-          name: '销量变化率',
-          type: 'bar',
-          data: salesChanges,
-          itemStyle: { color: '#409EFF' },
-          markLine: {
-            data: [
-              { yAxis: 0, name: '基准线', lineStyle: { color: '#909399', type: 'dashed' } }
-            ]
-          }
-        },
-        {
-          name: '收益变化率',
-          type: 'line',
-          data: revenueChanges,
-          smooth: true,
-          itemStyle: { color: '#67C23A' },
-          lineStyle: { width: 3 }
-        }
-      ]
-    })
-  } catch (e) {
-    console.error('渲染价格调整影响预测图失败:', e)
-  }
-}
-
-// 销量预测
-const handleSalesPrediction = async () => {
-  if (!salesForm.value.category || !salesForm.value.price) {
-    ElMessage.warning('请填写完整的预测信息')
-    return
-  }
-
-  salesLoading.value = true
-  try {
-    const response = await decisionApi.predictSales({
-      category: salesForm.value.category,
-      price: salesForm.value.price,
-      discount: salesForm.value.discount || 0,
-      scenarios: [
-        { price: salesForm.value.price * 0.9, discount: salesForm.value.discount || 0 },
-        { price: salesForm.value.price, discount: salesForm.value.discount || 0 },
-        { price: salesForm.value.price * 1.1, discount: salesForm.value.discount || 0 }
-      ]
-    })
-
-    // request.js 拦截器已经提取了 res.data，所以 response 直接是数据对象
-    if (response) {
-      salesResult.value = response
-      console.log('销量预测结果:', response)
-      await nextTick()
-      renderSalesCharts()
-      ElMessage.success('预测完成')
-    } else {
-      ElMessage.error('预测失败：未返回数据')
-    }
-  } catch (error) {
-    console.error('预测失败:', error)
-    ElMessage.error('预测失败: ' + (error.message || '未知错误'))
-  } finally {
-    salesLoading.value = false
-  }
-}
-
-const resetSales = () => {
-  salesForm.value = {
-    category: '',
-    price: null,
-    discount: 20.0
-  }
-  salesResult.value = null
-  if (priceSalesChart) {
-    priceSalesChart.dispose()
-    priceSalesChart = null
-  }
-  if (discountSalesChart) {
-    discountSalesChart.dispose()
-    discountSalesChart = null
-  }
-}
-
-// 场景模拟
-const handleSimulation = async () => {
-  if (!simulationForm.value.category || !simulationForm.value.basePrice) {
-    ElMessage.warning('请填写完整的模拟信息')
-    return
-  }
-
-  simulationLoading.value = true
-  ElMessage.info('场景模拟需要较长时间，请耐心等待...')
-  
-  try {
-    const response = await decisionApi.simulateScenarios({
-      category: simulationForm.value.category,
-      basePrice: simulationForm.value.basePrice,
-      baseDiscount: simulationForm.value.baseDiscount || 0
-    })
-
-    // request.js 拦截器已经提取了 res.data，所以 response 直接是数据对象
-    if (response) {
-      simulationResult.value = response
-      console.log('场景模拟结果:', response)
-      
-      // 初始化交互式调整器
-      if (simulationForm.value.basePrice) {
-        interactivePrice.value = simulationForm.value.basePrice
-        interactiveDiscount.value = simulationForm.value.baseDiscount || 20.0
-        await updateInteractivePrediction()
-      }
-      
-      await nextTick()
-      renderAllSimulationCharts()
-      ElMessage.success('模拟完成')
-    } else {
-      ElMessage.error('模拟失败：未返回数据')
-    }
-  } catch (error) {
-    console.error('模拟失败:', error)
-    ElMessage.error('模拟失败: ' + (error.message || '未知错误'))
-  } finally {
-    simulationLoading.value = false
-  }
-}
-
-const resetSimulation = () => {
-  simulationForm.value = {
-    category: '',
-    basePrice: null,
-    baseDiscount: 20.0
-  }
-  simulationResult.value = null
-  interactivePrice.value = 0
-  interactiveDiscount.value = 20.0
-  interactivePrediction.value = { predictedSales: null, predictedRevenue: null }
-  
-  if (simulationHeatmapChart) {
-    simulationHeatmapChart.dispose()
-    simulationHeatmapChart = null
-  }
-  if (revenueWaterfallChart) {
-    revenueWaterfallChart.dispose()
-    revenueWaterfallChart = null
-  }
-  if (riskRewardChart) {
-    riskRewardChart.dispose()
-    riskRewardChart = null
-  }
-}
-
-// 交互式预测更新
-const updateInteractivePrediction = async () => {
-  if (!simulationForm.value.category || !interactivePrice.value) return
-  
-  try {
-    const response = await decisionApi.predictSales({
-      category: simulationForm.value.category,
-      price: interactivePrice.value,
-      discount: interactiveDiscount.value
-    })
-    
-    if (response && response.currentPrediction) {
-      interactivePrediction.value = {
-        predictedSales: response.currentPrediction.predictedSales,
-        predictedRevenue: response.currentPrediction.predictedRevenue
-      }
-    }
-  } catch (error) {
-    console.error('交互式预测失败:', error)
-    // 使用估算值
-    const basePrice = simulationForm.value.basePrice || interactivePrice.value
-    const priceElasticity = -1.5
-    const discountElasticity = 0.8
-    const baseSales = 300 // 默认基准销量
-    
-    const priceChangePercent = (interactivePrice.value - basePrice) / basePrice
-    const discountChangePercent = (interactiveDiscount.value - (simulationForm.value.baseDiscount || 20)) / 100.0
-    const salesChangePercent = priceChangePercent * priceElasticity + discountChangePercent * discountElasticity
-    const estimatedSales = baseSales * (1 + salesChangePercent)
-    const actualPrice = interactivePrice.value * (1 - interactiveDiscount.value / 100.0)
-    const estimatedRevenue = actualPrice * estimatedSales
-    
-    interactivePrediction.value = {
-      predictedSales: Math.max(0, estimatedSales),
-      predictedRevenue: Math.max(0, estimatedRevenue)
-    }
-  }
-}
-
-// 渲染销量预测图表
-const renderSalesCharts = () => {
-  if (!salesResult.value) return
-
-  // 价格-销量曲线
-  if (priceSalesChartRef.value && salesResult.value.priceSalesCurve) {
-    if (priceSalesChart) {
-      priceSalesChart.dispose()
-    }
-    priceSalesChart = echarts.init(priceSalesChartRef.value)
-
-    const priceData = salesResult.value.priceSalesCurve.map(item => item.price)
-    const salesData = salesResult.value.priceSalesCurve.map(item => item.sales)
-    const revenueData = salesResult.value.priceSalesCurve.map(item => item.revenue)
-
-    priceSalesChart.setOption({
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'cross' }
-      },
-      legend: {
-        data: ['销量', '收益']
-      },
-      xAxis: {
-        type: 'value',
-        name: '价格 ($)',
-        nameLocation: 'middle',
-        nameGap: 30
-      },
-      yAxis: [
-        {
-          type: 'value',
-          name: '销量',
-          position: 'left',
-          axisLabel: { formatter: '{value}' }
-        },
-        {
-          type: 'value',
-          name: '收益 ($)',
-          position: 'right',
-          axisLabel: { formatter: '{value}' }
-        }
-      ],
-      series: [
-        {
-          name: '销量',
-          type: 'line',
-          data: salesData.map((sales, index) => [priceData[index], sales]),
-          smooth: true,
-          itemStyle: { color: '#409EFF' },
-          lineStyle: { width: 3 }
-        },
-        {
-          name: '收益',
-          type: 'line',
-          yAxisIndex: 1,
-          data: revenueData.map((revenue, index) => [priceData[index], revenue]),
-          smooth: true,
-          itemStyle: { color: '#67C23A' },
-          lineStyle: { width: 3 }
-        }
-      ]
-    })
-  }
-
-  // 折扣-销量曲线
-  if (discountSalesChartRef.value && salesResult.value.discountSalesCurve) {
-    if (discountSalesChart) {
-      discountSalesChart.dispose()
-    }
-    discountSalesChart = echarts.init(discountSalesChartRef.value)
-
-    const discountData = salesResult.value.discountSalesCurve.map(item => item.discount)
-    const salesData = salesResult.value.discountSalesCurve.map(item => item.sales)
-    const revenueData = salesResult.value.discountSalesCurve.map(item => item.revenue)
-
-    discountSalesChart.setOption({
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'cross' }
-      },
-      legend: {
-        data: ['销量', '收益']
-      },
-      xAxis: {
-        type: 'value',
-        name: '折扣 (%)',
-        nameLocation: 'middle',
-        nameGap: 30
-      },
-      yAxis: [
-        {
-          type: 'value',
-          name: '销量',
-          position: 'left'
-        },
-        {
-          type: 'value',
-          name: '收益 ($)',
-          position: 'right'
-        }
-      ],
-      series: [
-        {
-          name: '销量',
-          type: 'line',
-          data: salesData.map((sales, index) => [discountData[index], sales]),
-          smooth: true,
-          itemStyle: { color: '#409EFF' },
-          lineStyle: { width: 3 }
-        },
-        {
-          name: '收益',
-          type: 'line',
-          yAxisIndex: 1,
-          data: revenueData.map((revenue, index) => [discountData[index], revenue]),
-          smooth: true,
-          itemStyle: { color: '#67C23A' },
-          lineStyle: { width: 3 }
-        }
-      ]
-    })
-  }
-}
-
-// 渲染所有场景模拟图表
-const renderAllSimulationCharts = () => {
-  if (!simulationResult.value || !simulationResult.value.simulations) return
-  
-  renderSimulationHeatmap()
-  renderRevenueWaterfallChart()
-  renderRiskRewardChart()
-}
-
-// 渲染收益热力图
-const renderSimulationHeatmap = () => {
-  if (!simulationResult.value || !simulationResult.value.simulations) return
-  if (!simulationHeatmapRef.value) return
-
-  if (simulationHeatmapChart) {
-    simulationHeatmapChart.dispose()
-  }
-  simulationHeatmapChart = echarts.init(simulationHeatmapRef.value)
-
-  const simulations = simulationResult.value.simulations
-  const prices = [...new Set(simulations.map(s => s.price))].sort((a, b) => a - b)
-  const discounts = [...new Set(simulations.map(s => s.discount))].sort((a, b) => a - b)
-
-  const heatmapData = []
-  simulations.forEach(sim => {
-    const priceIndex = prices.indexOf(sim.price)
-    const discountIndex = discounts.indexOf(sim.discount)
-    heatmapData.push([discountIndex, priceIndex, sim.predictedRevenue])
+    }]
   })
+}
 
-  const maxRevenue = Math.max(...simulations.map(s => s.predictedRevenue))
-  const minRevenue = Math.min(...simulations.map(s => s.predictedRevenue))
+const renderDiscountCurve = () => {
+  if (!discountCurveRef.value || !charts.value.discountCurve) return
+  discountCurveChart?.dispose()
+  discountCurveChart = echarts.init(discountCurveRef.value)
+  const data = charts.value.discountCurve
+  discountCurveChart.setOption({
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: data.map(d => d.discount + '%'), name: '折扣(%)' },
+    yAxis: [
+      { type: 'value', name: '销量' },
+      { type: 'value', name: '收益', position: 'right' }
+    ],
+    legend: { data: ['销量', '收益'] },
+    series: [
+      { name: '销量', type: 'line', data: data.map(d => d.predictedSales), smooth: true },
+      { name: '收益', type: 'line', yAxisIndex: 1, data: data.map(d => d.predictedRevenue), smooth: true }
+    ]
+  })
+}
 
-  simulationHeatmapChart.setOption({
-    title: {
-      text: '收益预测热力图',
-      left: 'center',
-      textStyle: { fontSize: 14 }
+const renderRiskReward = () => {
+  if (!riskRewardRef.value || !recommendations.value.length) return
+  riskRewardChart?.dispose()
+  riskRewardChart = echarts.init(riskRewardRef.value)
+  
+  // 使用策略推荐数据生成雷达图，对比三个策略
+  const recs = recommendations.value
+  const currentSales = analysisCards.value.predictedSales || 0
+  const currentRevenue = analysisCards.value.predictedRevenue || 0
+  
+  // 计算各维度的最大值用于归一化
+  const maxSales = Math.max(currentSales, ...recs.map(r => r.predictedSales || 0))
+  const maxRevenue = Math.max(currentRevenue, ...recs.map(r => r.predictedRevenue || 0))
+  const maxDiscount = Math.max(form.value.discount || 0, ...recs.map(r => r.discount || 0), 30)
+  
+  // 归一化函数（0-100）
+  const normalize = (val, max) => max > 0 ? Math.min(100, (val / max) * 100) : 0
+  
+  // 计算利润率得分（折扣越低利润率越高）
+  const profitScore = (discount) => Math.max(0, 100 - discount * 2)
+  
+  // 风险得分（折扣越高风险越高，反转为安全得分）
+  const safetyScore = (discount, coupon, ad) => Math.max(0, 100 - discount - (coupon || 0) - (ad || 0) * 0.5)
+  
+  const seriesData = []
+  
+  // 当前策略
+  seriesData.push({
+    value: [
+      normalize(currentSales, maxSales),
+      normalize(currentRevenue, maxRevenue),
+      profitScore(form.value.discount || 0),
+      safetyScore(form.value.discount || 0, form.value.couponPct, form.value.adBudgetPct),
+      50 // 灵活性中等
+    ],
+    name: '当前策略',
+    lineStyle: { color: '#909399', type: 'dashed' },
+    itemStyle: { color: '#909399' },
+    areaStyle: { color: 'rgba(144, 147, 153, 0.2)' }
+  })
+  
+  // 三个推荐策略
+  const colors = ['#E6A23C', '#409EFF', '#67C23A']
+  recs.forEach((rec, idx) => {
+    seriesData.push({
+      value: [
+        normalize(rec.predictedSales || 0, maxSales),
+        normalize(rec.predictedRevenue || 0, maxRevenue),
+        profitScore(rec.discount || 0),
+        safetyScore(rec.discount || 0, rec.couponPct, rec.adBudgetPct),
+        idx === 0 ? 30 : idx === 1 ? 70 : 50 // 保守30，激进70，均衡50
+      ],
+      name: rec.label,
+      lineStyle: { color: colors[idx] },
+      itemStyle: { color: colors[idx] },
+      areaStyle: { color: colors[idx].replace(')', ', 0.15)').replace('rgb', 'rgba') }
+    })
+  })
+  
+  riskRewardChart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { 
+      data: ['当前策略', ...recs.map(r => r.label)],
+      top: 0,
+      textStyle: { fontSize: 11 }
     },
+    radar: {
+      indicator: [
+        { name: '销量', max: 100 },
+        { name: '收益', max: 100 },
+        { name: '利润率', max: 100 },
+        { name: '安全性', max: 100 },
+        { name: '灵活性', max: 100 }
+      ],
+      center: ['50%', '55%'],
+      radius: '60%'
+    },
+    series: [{
+      type: 'radar',
+      data: seriesData
+    }]
+  })
+}
+
+const renderWaterfall = () => {
+  if (!waterfallRef.value || !recommendations.value.length) return
+  waterfallChart?.dispose()
+  waterfallChart = echarts.init(waterfallRef.value)
+  
+  // 使用策略推荐数据，对比当前策略和三个推荐策略的销量/收益
+  const recs = recommendations.value
+  const currentSales = analysisCards.value.predictedSales || 0
+  const currentRevenue = analysisCards.value.predictedRevenue || 0
+  
+  const categories = ['当前策略', ...recs.map(r => r.label)]
+  const salesData = [currentSales, ...recs.map(r => r.predictedSales || 0)]
+  const revenueData = [currentRevenue, ...recs.map(r => r.predictedRevenue || 0)]
+  
+  waterfallChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: params => {
+        let res = `${params[0].name}<br/>`
+        params.forEach(p => {
+          const val = p.seriesName === '预测收益' ? `$${(p.value / 1000).toFixed(0)}k` : p.value.toFixed(0)
+          res += `${p.marker} ${p.seriesName}: ${val}<br/>`
+        })
+        return res
+      }
+    },
+    legend: { data: ['预测销量', '预测收益'], top: 0 },
+    xAxis: { 
+      type: 'category', 
+      data: categories,
+      axisLabel: { interval: 0, fontSize: 11 }
+    },
+    yAxis: [
+      { type: 'value', name: '销量', position: 'left' },
+      { type: 'value', name: '收益($)', position: 'right', axisLabel: { formatter: v => (v / 1000).toFixed(0) + 'k' } }
+    ],
+    series: [
+      {
+        name: '预测销量',
+        type: 'bar',
+        data: salesData,
+        itemStyle: {
+          color: (params) => {
+            const colors = ['#909399', '#E6A23C', '#409EFF', '#67C23A']
+            return colors[params.dataIndex] || '#409EFF'
+          }
+        },
+        barWidth: '35%',
+        label: {
+          show: true,
+          position: 'top',
+          formatter: p => p.value.toFixed(0),
+          fontSize: 10
+        }
+      },
+      {
+        name: '预测收益',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: revenueData,
+        itemStyle: {
+          color: (params) => {
+            const colors = ['rgba(144,147,153,0.6)', 'rgba(230,162,60,0.6)', 'rgba(64,158,255,0.6)', 'rgba(103,194,58,0.6)']
+            return colors[params.dataIndex] || 'rgba(64,158,255,0.6)'
+          }
+        },
+        barWidth: '35%',
+        label: {
+          show: true,
+          position: 'top',
+          formatter: p => '$' + (p.value / 1000).toFixed(0) + 'k',
+          fontSize: 10
+        }
+      }
+    ]
+  })
+}
+
+const renderHeatmap = () => {
+  if (!heatmapRef.value || !charts.value.heatmap) return
+  heatmapChart?.dispose()
+  heatmapChart = echarts.init(heatmapRef.value)
+  const data = charts.value.heatmap.data || []
+  const prices = [...new Set(data.map(d => d.price))].sort((a, b) => a - b)
+  const discounts = [...new Set(data.map(d => d.discount))].sort((a, b) => a - b)
+  const values = data.map(d => [
+    discounts.indexOf(d.discount),
+    prices.indexOf(d.price),
+    d.revenue
+  ])
+  const revs = data.map(d => d.revenue)
+  const minRev = Math.min(...revs)
+  const maxRev = Math.max(...revs)
+  heatmapChart.setOption({
     tooltip: {
       position: 'top',
-      formatter: (params) => {
-        const price = prices[params.data[1]]
-        const discount = discounts[params.data[0]]
-        const revenue = params.data[2]
-        return `价格: $${price.toFixed(2)}<br/>折扣: ${discount.toFixed(1)}%<br/>收益: $${revenue.toFixed(2)}`
+      formatter: p => {
+        const price = prices[p.data[1]]
+        const disc = discounts[p.data[0]]
+        return `价格:$${price.toFixed(2)}<br/>折扣:${disc.toFixed(1)}%<br/>收益:$${(p.data[2] / 1000).toFixed(1)}k`
       }
     },
-    grid: {
-      height: '60%',
-      top: '15%'
-    },
-    xAxis: {
-      type: 'category',
-      data: discounts.map(d => d.toFixed(1) + '%'),
-      splitArea: { show: true },
-      name: '折扣 (%)'
-    },
-    yAxis: {
-      type: 'category',
-      data: prices.map(p => '$' + p.toFixed(0)),
-      splitArea: { show: true },
-      name: '价格 ($)'
-    },
+    grid: { height: '65%', top: '10%' },
+    xAxis: { type: 'category', data: discounts.map(d => d + '%'), name: '折扣' },
+    yAxis: { type: 'category', data: prices.map(p => '$' + p.toFixed(0)), name: '价格' },
     visualMap: {
-      min: minRevenue,
-      max: maxRevenue,
+      min: minRev,
+      max: maxRev,
       calculable: true,
       orient: 'horizontal',
       left: 'center',
-      bottom: '5%',
+      bottom: '3%',
       inRange: {
-        color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffcc', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026']
-      }
+        color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026']
+      },
+      formatter: v => '$' + (v / 1000).toFixed(0) + 'k'
     },
     series: [{
-      name: '收益预测',
       type: 'heatmap',
-      data: heatmapData,
+      data: values,
       label: {
-        show: false
-      },
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        show: true,
+        formatter: p => (p.data[2] / 1000).toFixed(0) + 'k',
+        fontSize: 9,
+        color: p => {
+          const val = p.data[2]
+          const mid = (minRev + maxRev) / 2
+          return val > mid ? '#fff' : '#333'
         }
+      },
+      emphasis: { 
+        itemStyle: { 
+          shadowBlur: 10, 
+          shadowColor: 'rgba(0,0,0,0.5)' 
+        } 
       }
     }]
   })
 }
 
-
-// 渲染收益变化瀑布图
-const renderRevenueWaterfallChart = () => {
-  if (!simulationResult.value || !simulationResult.value.simulations) return
-  if (!revenueWaterfallChartRef.value) return
-
-  if (revenueWaterfallChart) {
-    revenueWaterfallChart.dispose()
-  }
-  revenueWaterfallChart = echarts.init(revenueWaterfallChartRef.value)
-
-  const simulations = simulationResult.value.simulations
-  const basePrice = simulationResult.value.basePrice
-  const baseDiscount = simulationResult.value.baseDiscount || 0
-  
-  // 找到基准场景
-  const baseScenario = simulations.find(s => 
-    Math.abs(s.price - basePrice) < 0.01 && Math.abs(s.discount - baseDiscount) < 0.01
-  ) || simulations[Math.floor(simulations.length / 2)]
-  
-  const baseRevenue = baseScenario.predictedRevenue
-  
-  // 选择几个关键场景进行对比
-  const keyScenarios = [
-    { name: '基准场景', price: basePrice, discount: baseDiscount, revenue: baseRevenue },
-    ...getTopScenarios().slice(0, 4).map((s, idx) => ({
-      name: `策略${idx + 1}`,
-      price: s.price,
-      discount: s.discount,
-      revenue: s.predictedRevenue
-    }))
-  ]
-
-  const categories = keyScenarios.map(s => `${s.name}\n$${s.price.toFixed(0)}/${s.discount.toFixed(0)}%`)
-  const revenueData = keyScenarios.map(s => s.revenue)
-  const changes = keyScenarios.map(s => s.revenue - baseRevenue)
-
-  revenueWaterfallChart.setOption({
-    title: {
-      text: '收益变化瀑布图',
-      left: 'center',
-      textStyle: { fontSize: 14 }
-    },
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params) => {
-        const param = params[0]
-        const idx = param.dataIndex
-        const scenario = keyScenarios[idx]
-        return `${scenario.name}<br/>价格: $${scenario.price.toFixed(2)}<br/>折扣: ${scenario.discount.toFixed(1)}%<br/>收益: $${scenario.revenue.toFixed(2)}<br/>变化: ${changes[idx] >= 0 ? '+' : ''}$${changes[idx].toFixed(2)}`
-      }
-    },
-    xAxis: {
-      type: 'category',
-      data: categories
-    },
-    yAxis: {
-      type: 'value',
-      name: '收益 ($)'
-    },
+const renderPriceBand = () => {
+  if (!priceBandRef.value || !charts.value.priceBand) return
+  priceBandChart?.dispose()
+  priceBandChart = echarts.init(priceBandRef.value)
+  const data = charts.value.priceBand
+  priceBandChart.setOption({
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: data.map(d => '$' + d.priceBand), name: '价格带' },
+    yAxis: { type: 'value', name: '销量' },
     series: [
       {
-        name: '基准收益',
         type: 'bar',
-        stack: 'total',
-        data: keyScenarios.map(() => baseRevenue),
-        itemStyle: { color: '#91CC75' }
-      },
-      {
-        name: '收益变化',
-        type: 'bar',
-        stack: 'total',
-        data: changes,
-        itemStyle: {
-          color: (params) => {
-            return params.value >= 0 ? '#5470C6' : '#EE6666'
-          }
-        },
-        label: {
-          show: true,
-          position: 'top',
-          formatter: (params) => {
-            const val = params.value
-            return val >= 0 ? `+$${val.toFixed(0)}` : `$${val.toFixed(0)}`
-          }
-        }
+        data: data.map(d => d.sales),
+        itemStyle: { color: '#409EFF' }
       }
     ]
   })
 }
 
-// 渲染风险-收益散点图
-const renderRiskRewardChart = () => {
-  if (!simulationResult.value || !simulationResult.value.simulations) return
-  if (!riskRewardChartRef.value) return
-
-  if (riskRewardChart) {
-    riskRewardChart.dispose()
-  }
-  riskRewardChart = echarts.init(riskRewardChartRef.value)
-
-  const simulations = simulationResult.value.simulations
-  
-  // 计算风险（使用收益的标准差作为风险指标）
-  const revenues = simulations.map(s => s.predictedRevenue)
-  const avgRevenue = revenues.reduce((a, b) => a + b, 0) / revenues.length
-  const variance = revenues.reduce((sum, r) => sum + Math.pow(r - avgRevenue, 2), 0) / revenues.length
-  const stdDev = Math.sqrt(variance)
-  
-  // 计算每个场景的风险（相对于平均收益的偏差）
-  const scatterData = simulations.map(sim => {
-    const risk = Math.abs(sim.predictedRevenue - avgRevenue) / stdDev
-    return [risk, sim.predictedRevenue, sim.price, sim.discount, sim.predictedSales]
-  })
-
-  // 找到最优策略（高收益低风险）
-  const maxRevenue = Math.max(...revenues)
-  const optimalScenario = simulations.find(s => s.predictedRevenue === maxRevenue)
-
-  riskRewardChart.setOption({
-    title: {
-      text: '风险-收益散点图',
-      left: 'center',
-      textStyle: { fontSize: 14 }
-    },
-    tooltip: {
-      trigger: 'item',
-      formatter: (params) => {
-        const data = params.data
-        return `风险: ${data[0].toFixed(2)}<br/>收益: $${data[1].toFixed(2)}<br/>价格: $${data[2].toFixed(2)}<br/>折扣: ${data[3].toFixed(1)}%<br/>销量: ${data[4].toFixed(0)}`
-      }
-    },
-    xAxis: {
-      type: 'value',
-      name: '风险（收益波动）',
-      nameLocation: 'middle',
-      nameGap: 30
-    },
-    yAxis: {
-      type: 'value',
-      name: '收益 ($)',
-      nameLocation: 'middle',
-      nameGap: 50
-    },
-    series: [
-      {
-        name: '策略分布',
-        type: 'scatter',
-        data: scatterData,
-        symbolSize: (data) => Math.sqrt(data[4]) / 2, // 根据销量调整点的大小
-        itemStyle: {
-          color: (params) => {
-            const risk = params.data[0]
-            const revenue = params.data[1]
-            // 高收益低风险 = 绿色，高收益高风险 = 黄色，低收益 = 红色
-            if (revenue > avgRevenue && risk < 1) return '#67C23A'
-            if (revenue > avgRevenue) return '#E6A23C'
-            return '#F56C6C'
-          },
-          opacity: 0.7
-        },
-        markPoint: {
-          data: [
-            {
-              coord: [
-                Math.abs(optimalScenario.predictedRevenue - avgRevenue) / stdDev,
-                optimalScenario.predictedRevenue
-              ],
-              name: '最优策略',
-              itemStyle: { color: '#67C23A' },
-              symbol: 'pin',
-              symbolSize: 50
-            }
-          ]
-        },
-        markArea: {
-          itemStyle: { color: 'rgba(103, 194, 58, 0.1)' },
-          data: [[
-            { coord: [0, avgRevenue] },
-            { coord: [1, maxRevenue] }
-          ]],
-          label: {
-            show: true,
-            position: 'inside',
-            formatter: '最优区域\n（高收益低风险）'
-          }
-        }
-      }
-    ]
-  })
+const disposeCharts = () => {
+  priceSalesChart?.dispose()
+  discountCurveChart?.dispose()
+  riskRewardChart?.dispose()
+  waterfallChart?.dispose()
+  heatmapChart?.dispose()
+  priceBandChart?.dispose()
 }
 
-// 统计信息计算函数
-const getMaxRevenue = () => {
-  if (!simulationResult.value?.simulations) return 0
-  return Math.max(...simulationResult.value.simulations.map(s => s.predictedRevenue))
-}
-
-const getAvgRevenue = () => {
-  if (!simulationResult.value?.simulations || simulationResult.value.simulations.length === 0) return 0
-  const sum = simulationResult.value.simulations.reduce((acc, s) => acc + s.predictedRevenue, 0)
-  return sum / simulationResult.value.simulations.length
-}
-
-const getMaxSales = () => {
-  if (!simulationResult.value?.simulations) return 0
-  return Math.max(...simulationResult.value.simulations.map(s => s.predictedSales))
-}
-
-const getMaxRevenueScenario = () => {
-  if (!simulationResult.value?.simulations) return null
-  return simulationResult.value.simulations.reduce((max, s) => 
-    s.predictedRevenue > max.predictedRevenue ? s : max
-  )
-}
-
-const getMaxSalesScenario = () => {
-  if (!simulationResult.value?.simulations) return null
-  return simulationResult.value.simulations.reduce((max, s) => 
-    s.predictedSales > max.predictedSales ? s : max
-  )
-}
-
-const getTopScenarios = () => {
-  if (!simulationResult.value?.simulations) return []
-  return [...simulationResult.value.simulations]
-    .sort((a, b) => b.predictedRevenue - a.predictedRevenue)
-    .slice(0, 5)
-}
-
-const applyScenario = (scenario) => {
-  ElMessage.success(`已采用策略：价格 $${scenario.price.toFixed(2)}，折扣 ${scenario.discount.toFixed(1)}%，预计收益 $${scenario.predictedRevenue.toFixed(2)}`)
-  // 这里可以添加实际应用策略的逻辑
-}
-
-// 工具方法
-const getDiagnosisTagType = (diagnosis) => {
-  if (diagnosis?.includes('合理')) return 'success'
-  if (diagnosis?.includes('偏高')) return 'danger'
-  if (diagnosis?.includes('偏低')) return 'warning'
-  return 'info'
-}
-
-const getConfidenceColor = (confidence) => {
-  if (confidence >= 0.9) return '#67C23A'
-  if (confidence >= 0.7) return '#E6A23C'
-  return '#F56C6C'
-}
-
-// 窗口大小变化处理
 const handleResize = () => {
-  diagnosisPriceSalesChart?.resize()
-  competitivenessRadarChart?.resize()
   priceSalesChart?.resize()
-  discountSalesChart?.resize()
-  simulationHeatmapChart?.resize()
-  revenueWaterfallChart?.resize()
+  discountCurveChart?.resize()
   riskRewardChart?.resize()
+  waterfallChart?.resize()
+  heatmapChart?.resize()
+  priceBandChart?.resize()
 }
-
-// 监听交互式调整器变化
-// 监听交互式调整器变化（添加防抖，避免频繁调用预测服务）
-let interactivePredictionTimer = null
-const stopWatch1 = watch([interactivePrice, interactiveDiscount], () => {
-  if (simulationResult.value && simulationForm.value.category && interactivePrice.value > 0) {
-    // 添加防抖，避免频繁调用
-    if (interactivePredictionTimer) {
-      clearTimeout(interactivePredictionTimer)
-    }
-    interactivePredictionTimer = setTimeout(() => {
-      updateInteractivePrediction()
-    }, 500) // 500ms 防抖，减少API调用
-  }
-})
-
 
 onMounted(() => {
   loadCategories()
@@ -1769,27 +827,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // 清理事件监听器
   window.removeEventListener('resize', handleResize)
-  
-  // 停止 watch 监听
-  stopWatch1()
-  // 清理防抖定时器
-  if (interactivePredictionTimer) {
-    clearTimeout(interactivePredictionTimer)
-    interactivePredictionTimer = null
-  }
-  
-  // 清理图表实例
-  priceDistributionChart?.dispose()
-  competitivenessRadarChart?.dispose()
-  diagnosisPriceSalesChart?.dispose()
-  priceImpactChart?.dispose()
-  priceSalesChart?.dispose()
-  discountSalesChart?.dispose()
-  simulationHeatmapChart?.dispose()
-  revenueWaterfallChart?.dispose()
-  riskRewardChart?.dispose()
+  disposeCharts()
 })
 </script>
 
@@ -1797,78 +836,194 @@ onUnmounted(() => {
 .decision-center {
   padding: 0;
 }
-
 .card-header {
   display: flex;
   align-items: center;
   font-size: 18px;
   font-weight: 600;
 }
-
 .card-header .el-icon {
   margin-right: 8px;
 }
-
-.tab-content {
-  padding: 20px 0;
+.card-subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #909399;
 }
-
-.diagnosis-form,
-.sales-form,
-.simulation-form {
+.metric-row {
+  margin-bottom: 16px;
+}
+.metric-card {
+  text-align: center;
+}
+.metric-label {
+  font-size: 13px;
+  color: #909399;
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+.metric-value.primary {
+  color: #409eff;
+}
+.metric-value.success {
+  color: #67c23a;
+}
+.metric-value.warning {
+  color: #e6a23c;
+}
+.metric-value.info {
+  color: #909399;
+}
+.form-section {
+  margin-bottom: 12px;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+}
+.diagnosis-card {
   margin-bottom: 20px;
 }
-
-.result-section {
-  margin-top: 30px;
+.price-highlight {
+  color: #e6a23c;
+  font-weight: 600;
+  font-size: 15px;
 }
-
-.result-card {
+.actual-price-highlight {
+  color: #67c23a;
+  font-weight: 600;
+  font-size: 15px;
+}
+.price-danger {
+  color: #f56c6c;
+  font-weight: 600;
+  font-size: 15px;
+  background-color: #fef0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.price-warning {
+  color: #e6a23c;
+  font-weight: 600;
+}
+.competitor-price-highlight {
+  color: #409eff;
+  font-weight: 600;
+  font-size: 15px;
+}
+.gap-positive {
+  color: #67c23a;
+  font-weight: 600;
+}
+.gap-negative {
+  color: #f56c6c;
+  font-weight: 600;
+}
+.suggestion-text {
+  color: #606266;
+  line-height: 1.6;
+}
+.impact-text {
+  color: #67c23a;
+  font-weight: 600;
+}
+.detail-suggestions {
+  padding: 12px 0;
+}
+.suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+.suggestion-label {
+  font-weight: 600;
+  color: #303133;
+  min-width: 90px;
+}
+.suggestion-content {
+  flex: 1;
+  color: #606266;
+  line-height: 1.6;
+}
+.strategy-section {
   margin-bottom: 20px;
 }
-
+.section-header {
+  margin-bottom: 16px;
+}
+.section-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+.strategy-card {
+  height: 100%;
+}
+.strategy-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.strategy-desc {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
+}
+.strategy-detail {
+  font-size: 14px;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.detail-row:last-child {
+  border-bottom: none;
+}
+.detail-label {
+  color: #909399;
+  font-size: 13px;
+}
+.detail-value {
+  font-weight: 600;
+  color: #303133;
+}
+.price-value {
+  color: #e6a23c;
+  font-size: 16px;
+}
+.sales-value {
+  color: #409eff;
+}
+.revenue-value {
+  color: #67c23a;
+}
+.chart-card {
+  margin-top: 0;
+}
+.chart-grid {
+  margin-top: 12px;
+}
 .result-title {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
 }
-
-.chart-card {
-  margin-top: 20px;
-}
-
-.chart-card .result-title {
-  font-size: 14px;
-}
-
-.stat-card {
-  text-align: center;
-  height: 100%;
-}
-
-.stat-item {
-  padding: 10px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 10px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.stat-desc {
-  font-size: 12px;
-  color: #C0C4CC;
-}
-
 .mb-4 {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 </style>
+
 
