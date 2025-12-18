@@ -29,37 +29,7 @@
     </el-card>
 
     <el-row :gutter="20" class="chart-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="never">
-          <template #header>
-            <span><el-icon><TrendCharts /></el-icon> 指标趋势（最近训练）</span>
-          </template>
-          <div ref="trendChartRef" class="chart" v-if="metricsHistory.length"></div>
-          <el-empty v-else description="暂无历史指标" />
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="never">
-          <template #header>
-            <span><el-icon><Histogram /></el-icon> 分类精度对比</span>
-          </template>
-          <div ref="categoryChartRef" class="chart" v-if="categoryMetrics.length"></div>
-          <el-empty v-else description="暂无分类指标" />
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="20" class="chart-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="never">
-          <template #header>
-            <span><el-icon><DataAnalysis /></el-icon> 误差区间分布</span>
-          </template>
-          <div ref="errorChartRef" class="chart" v-if="errorDistribution.length"></div>
-          <el-empty v-else description="暂无误差统计" />
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :md="12">
+      <el-col :xs="24" :md="14">
         <el-card shadow="never" class="summary-card" v-if="trainingSummary">
           <template #header>
             <span><el-icon><Setting /></el-icon> 训练配置与运行信息</span>
@@ -79,33 +49,6 @@
           <el-empty description="暂无训练信息" />
         </el-card>
       </el-col>
-    </el-row>
-
-    <el-row :gutter="20" class="table-row">
-      <el-col :xs="24" :md="14">
-        <el-card shadow="never">
-          <template #header>
-            <span><el-icon><Warning /></el-icon> 高误差样本 TOP10</span>
-          </template>
-          <el-table :data="topErrors" height="360" border v-loading="loading">
-            <el-table-column prop="productTitle" label="商品名称" min-width="220" show-overflow-tooltip />
-            <el-table-column prop="productCategory" label="分类" width="120" />
-            <el-table-column label="实际价格" width="120">
-              <template #default="{ row }">${{ formatNumber(row.actualPrice) }}</template>
-            </el-table-column>
-            <el-table-column label="预测价格" width="120">
-              <template #default="{ row }">${{ formatNumber(row.predictedPrice) }}</template>
-            </el-table-column>
-            <el-table-column label="误差" width="120">
-              <template #default="{ row }">
-                <span :style="{ color: row.priceGap > 0 ? '#F56C6C' : '#67C23A' }">
-                  {{ row.priceGap > 0 ? '+' : '' }}${{ formatNumber(row.priceGap) }}
-                </span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
       <el-col :xs="24" :md="10">
         <el-card shadow="never">
           <template #header>
@@ -117,6 +60,33 @@
             <el-table-column prop="rmse" label="RMSE" width="100" />
             <el-table-column prop="mae" label="MAE" width="100" />
             <el-table-column prop="r2" label="R²" width="100" />
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="table-row">
+      <el-col :xs="24" :md="24">
+        <el-card shadow="never">
+          <template #header>
+            <span><el-icon><Warning /></el-icon> 高误差样本 TOP10</span>
+          </template>
+          <el-table :data="topErrors" height="360" border v-loading="loading">
+            <el-table-column prop="productTitle" label="商品名称" min-width="260" show-overflow-tooltip />
+            <el-table-column prop="productCategory" label="分类" width="140" />
+            <el-table-column label="实际价格" width="140">
+              <template #default="{ row }">${{ formatNumber(row.actualPrice) }}</template>
+            </el-table-column>
+            <el-table-column label="预测价格" width="140">
+              <template #default="{ row }">${{ formatNumber(row.predictedPrice) }}</template>
+            </el-table-column>
+            <el-table-column label="误差" width="140">
+              <template #default="{ row }">
+                <span :style="{ color: row.priceGap > 0 ? '#F56C6C' : '#67C23A' }">
+                  {{ row.priceGap > 0 ? '+' : '' }}${{ formatNumber(row.priceGap) }}
+                </span>
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
       </el-col>
@@ -189,26 +159,15 @@ const versionRows = computed(() => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [
-      overviewRes,
-      historyRes,
-      categoryRes,
-      errorRes,
-      topRes,
-      summaryRes
-    ] = await Promise.all([
+    const [overviewRes, historyRes, topRes, summaryRes] = await Promise.all([
       modelApi.getModelMetrics(),
       modelApi.getMetricsHistory({ limit: 8 }),
-      modelApi.getCategoryMetrics({ limit: 8 }),
-      modelApi.getErrorDistribution(),
       modelApi.getTopErrorSamples({ limit: 10 }),
       modelApi.getTrainingSummary()
     ])
 
     overview.value = overviewRes && overviewRes.rmse != null ? overviewRes : null
     metricsHistory.value = historyRes || []
-    categoryMetrics.value = categoryRes || []
-    errorDistribution.value = errorRes || []
     topErrors.value = topRes || []
     trainingSummary.value = summaryRes || null
   } catch (error) {
@@ -222,9 +181,7 @@ const loadData = async () => {
 }
 
 const renderAllCharts = () => {
-  renderTrendChart()
-  renderCategoryChart()
-  renderErrorChart()
+  // 仅保留表格，不再渲染图表
 }
 
 const renderTrendChart = () => {
