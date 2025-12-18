@@ -4,11 +4,11 @@
     <el-card shadow="hover" class="intro-card">
       <template #header>
         <div class="card-header">
-          <span><el-icon><Document /></el-icon> 价格推荐</span>
+          <span><el-icon><Document /></el-icon> 决策中心 · 价格评估</span>
         </div>
       </template>
       <div class="card-subtitle">
-        面向批量商品的价格调整执行工具，基于诊断结果给出推荐价格、调整幅度和预计效果，可筛选、勾选并导出落地执行。
+        面向批量商品的价格评估分析工具，基于预测模型诊断价格合理性，可按分类/价格区间/诊断结果筛选，支持批量导出。
       </div>
     </el-card>
 
@@ -122,7 +122,7 @@
     <el-card shadow="hover" style="margin-top: 20px">
       <template #header>
         <div class="card-header">
-          <span><el-icon><Document /></el-icon> 价格推荐列表</span>
+          <span><el-icon><Document /></el-icon> 价格评估列表</span>
           <div style="float: right">
             <el-button 
               type="primary" 
@@ -187,8 +187,8 @@
         </el-form-item>
       </el-form>
 
-      <!-- 快速筛选按钮和显示模式切换 -->
-      <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px">
+      <!-- 快速筛选按钮 -->
+      <div style="margin-bottom: 15px;">
         <el-button-group>
           <el-button size="small" :type="searchForm.diagnosis === '价格偏高' ? 'primary' : ''" @click="quickFilter('价格偏高')">
             价格偏高 ({{ allOverview.highPriceCount || 0 }})
@@ -203,20 +203,6 @@
             全部
           </el-button>
         </el-button-group>
-        <div style="display: flex; align-items: center; gap: 10px">
-          <el-tooltip content="默认只显示每个商品的推荐记录（价格差距最小的），开启后显示所有记录">
-            <el-switch
-              v-model="showAllRecords"
-              active-text="显示全部记录"
-              inactive-text="仅显示推荐"
-              @change="() => toggleShowAll()"
-            />
-          </el-tooltip>
-          <span v-if="!showAllRecords && hiddenDuplicates > 0" 
-                style="color: #909399; font-size: 12px">
-            已隐藏 {{ hiddenDuplicates }} 条重复记录
-          </span>
-        </div>
       </div>
 
       <el-table
@@ -227,16 +213,7 @@
         @sort-change="handleSortChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="productTitle" label="商品名称" min-width="200" show-overflow-tooltip sortable="custom">
-          <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 5px">
-              <span>{{ row.productTitle }}</span>
-              <el-tag v-if="!showAllRecords && duplicateCounts.get(row.productTitle) > 1" size="small" type="info">
-                {{ duplicateCounts.get(row.productTitle) }}条
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column prop="productTitle" label="商品名称" min-width="200" show-overflow-tooltip sortable="custom" />
         <el-table-column prop="productCategory" label="分类" width="120" />
         <el-table-column prop="actualPrice" label="实际价格" width="120" sortable="custom">
           <template #default="{ row }">
@@ -401,13 +378,10 @@ const sortOrder = ref('')
 // 图表数据（全部筛选后的数据，不分页）
 const chartData = ref([])
 
-// 去重显示控制
-const showAllRecords = ref(false) // 是否显示全部记录（包括重复的）
+// 去重显示控制（功能已取消，仅保留全部记录展示）
 const allRecommendations = ref([]) // 存储所有原始数据
-const duplicateCounts = ref(new Map()) // 记录每个商品的重复数量
-const hiddenDuplicates = ref(0) // 当前模式下隐藏的重复记录数量
 const exporting = ref(false) // 导出状态
-const EXPORT_PAGE_SIZE = 2000
+const EXPORT_PAGE_SIZE = 10000
 
 // 加载分类列表
 const loadCategories = async () => {
@@ -479,7 +453,7 @@ const loadChartData = async () => {
       minPrice: searchForm.value.minPrice || undefined,
       maxPrice: searchForm.value.maxPrice || undefined,
       pageNum: 1,
-      pageSize: 10000 // 获取足够多的数据用于图表
+      pageSize: 100000 // 获取所有数据用于图表统计
     }
     const data = await priceApi.getRecommendations(params)
     chartData.value = data.list || []
@@ -488,46 +462,10 @@ const loadChartData = async () => {
   }
 }
 
-// 构建去重结果
-const buildDedupResult = (dataList) => {
-  const productMap = new Map()
-  const counts = new Map()
-
-  dataList.forEach(item => {
-    const title = item.productTitle
-    const currentGap = Math.abs(item.priceGap || 0)
-    counts.set(title, (counts.get(title) || 0) + 1)
-    
-    if (!productMap.has(title)) {
-      productMap.set(title, item)
-    } else {
-      const existingGap = Math.abs(productMap.get(title).priceGap || 0)
-      if (currentGap < existingGap) {
-        productMap.set(title, item)
-      }
-    }
-  })
-
-  return {
-    uniqueList: Array.from(productMap.values()),
-    counts
-  }
-}
-
-// 前端去重处理：保留每个商品价格差距最小的记录（用于列表显示）
-const deduplicateRecommendations = (dataList) => {
-  const { uniqueList, counts } = buildDedupResult(dataList)
-  duplicateCounts.value = counts
-  return uniqueList
-}
-
-// 单纯返回去重列表（不更新重复计数，供导出等场景使用）
-const deduplicateList = (dataList) => buildDedupResult(dataList).uniqueList
-
 // 存储原始总数（用于分页计算）
 const originalTotal = ref(0)
 
-// 加载价格推荐列表
+// 加载价格评估列表
 const loadRecommendations = async () => {
   loading.value = true
   try {
@@ -545,44 +483,10 @@ const loadRecommendations = async () => {
     const data = await priceApi.getRecommendations(params)
     allRecommendations.value = data.list || []
     originalTotal.value = data.total || 0
-    
-    // 根据开关决定是否去重
-    if (showAllRecords.value) {
-      // 显示全部记录
-      recommendations.value = allRecommendations.value
-      total.value = originalTotal.value
-      hiddenDuplicates.value = 0
-    } else {
-      // 去重显示：只显示推荐记录
-      recommendations.value = deduplicateRecommendations(allRecommendations.value)
-      
-      // 计算去重后的总数
-      // 如果当前页数据量等于总数，说明已经获取了所有数据，直接去重计算
-      // 否则，需要获取全部数据来计算去重后的总数
-      if (originalTotal.value <= allRecommendations.value.length) {
-        // 当前页已经包含所有数据，直接使用去重后的数量
-        total.value = recommendations.value.length
-      } else {
-        // 还有更多页数据，需要获取全部数据来计算去重后的总数
-        try {
-          const allParams = {
-            ...params,
-            pageNum: 1,
-            pageSize: 10000 // 获取足够多的数据来计算去重后的总数
-          }
-          const allData = await priceApi.getRecommendations(allParams)
-          const allDeduplicated = deduplicateRecommendations(allData.list || [])
-          total.value = allDeduplicated.length
-        } catch (error) {
-          console.error('获取全部数据失败，使用当前页数据估算:', error)
-          // 如果获取失败，使用当前页的去重率来估算
-          const deduplicationRate = recommendations.value.length / allRecommendations.value.length
-          total.value = Math.ceil(originalTotal.value * deduplicationRate)
-        }
-      }
 
-      hiddenDuplicates.value = Math.max(originalTotal.value - total.value, 0)
-    }
+    // 直接显示全部记录
+    recommendations.value = allRecommendations.value
+    total.value = originalTotal.value
     
     // 加载完数据后更新图表
     await nextTick()
@@ -593,14 +497,6 @@ const loadRecommendations = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// 切换显示模式
-const toggleShowAll = async () => {
-  // el-switch的@change事件已经会切换showAllRecords的值
-  // 这里只需要重新加载数据
-  currentPage.value = 1
-  await loadRecommendations()
 }
 
 // 渲染图表
@@ -694,7 +590,7 @@ const renderCharts = () => {
       })
     })
     
-    // 计算总数量用于显示百分比
+    // 使用chartData的实际长度作为统计基数（与柱状图统计一致）
     const totalCount = chartData.value.length
     
     priceGapChart.setOption({
@@ -713,7 +609,7 @@ const renderCharts = () => {
         formatter: (params) => {
           const param = params[0]
           const range = gapRanges[param.dataIndex]
-          const percentage = totalCount > 0 ? ((range.count / totalCount) * 100).toFixed(1) : 0
+          const percentage = totalCount > 0 ? ((range.count / totalCount) * 100).toFixed(2) : 0
           return `${range.desc}<br/>商品数量: ${range.count} (${percentage}%)`
         }
       },
@@ -753,7 +649,7 @@ const renderCharts = () => {
             position: 'top',
             formatter: (params) => {
               const count = params.value
-              const percentage = totalCount > 0 ? ((count / totalCount) * 100).toFixed(1) : 0
+              const percentage = totalCount > 0 ? ((count / totalCount) * 100).toFixed(2) : 0
               return count > 0 ? `${count}\n(${percentage}%)` : ''
             },
             fontSize: 11
@@ -852,11 +748,11 @@ const viewDetail = (row) => {
   detailDialogVisible.value = true
 }
 
-// 前往价格诊断页面
+// 前往商品决策（已合并诊断能力）
 const goToDiagnosis = () => {
   detailDialogVisible.value = false
   router.push({
-    path: '/price-diagnosis',
+    path: '/decision-center',
     query: {
       category: currentDetail.value.productCategory,
       price: currentDetail.value.actualPrice
@@ -907,7 +803,7 @@ const exportData = async () => {
       return
     }
 
-    const exportList = showAllRecords.value ? allData : deduplicateList(allData)
+    const exportList = allData
     const headers = ['商品名称', '分类', '实际价格', '预测价格', '价格差距', '诊断结果', '月销量', '优化建议']
     const rows = exportList.map(item => [
     item.productTitle,
@@ -928,7 +824,7 @@ const exportData = async () => {
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `价格推荐列表_${new Date().getTime()}.csv`
+    link.download = `价格评估列表_${new Date().getTime()}.csv`
     link.click()
     
     ElMessage.success(`导出成功，共 ${rows.length} 条记录`)
@@ -958,8 +854,8 @@ const getPriceGapColor = (gap) => {
 
 // 计算百分比
 const getPercentage = (value, total) => {
-  if (!total || total === 0) return '0.0'
-  return ((value / total) * 100).toFixed(1)
+  if (!total || total === 0) return '0.00'
+  return ((value / total) * 100).toFixed(2)
 }
 
 // 监听筛选条件变化，自动更新概览和图表数据
@@ -994,6 +890,10 @@ onUnmounted(() => {
   padding: 0;
 }
 
+.intro-card {
+  margin-bottom: 16px;
+}
+
 .overview-row {
   margin-bottom: 0;
 }
@@ -1013,8 +913,16 @@ onUnmounted(() => {
 .card-header {
   font-weight: 600;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+}
+
+.intro-card .card-header .el-icon {
+  margin-right: 8px;
+}
+
+.card-subtitle {
+  font-size: 13px;
+  color: #909399;
 }
 
 .search-form {

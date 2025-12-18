@@ -86,13 +86,9 @@
               <el-icon><DataAnalysis /></el-icon>
               <span>商品决策</span>
             </el-menu-item>
-            <el-menu-item index="/price-diagnosis">
-              <el-icon><Search /></el-icon>
-              <span>价格诊断</span>
-            </el-menu-item>
             <el-menu-item index="/price-recommendations">
               <el-icon><Document /></el-icon>
-              <span>价格推荐</span>
+              <span>价格评估</span>
             </el-menu-item>
             <el-menu-item index="/decision-records">
               <el-icon><Document /></el-icon>

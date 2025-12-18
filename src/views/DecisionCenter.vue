@@ -1,15 +1,18 @@
 <template>
   <div class="decision-center">
-    <el-card shadow="hover">
+    <el-card shadow="hover" class="intro-card">
       <template #header>
         <div class="card-header">
-          <span><el-icon><DataAnalysis /></el-icon> 商品决策</span>
-        </div>
-        <div class="card-subtitle">
-          输入价格/折扣/竞品价/广告/优惠券，结合预测模型给出收益/销量预测与6张对比图。
+          <span><el-icon><DataAnalysis /></el-icon> 决策中心 · 商品决策</span>
         </div>
       </template>
+      <div class="card-subtitle">
+        输入价格/折扣/竞品价/广告/优惠券，结合预测模型给出收益/销量预测与6张对比图。
+      </div>
+    </el-card>
 
+    <!-- 操作与结果区域卡片 -->
+    <el-card shadow="never" class="panel-card">
       <!-- 指标卡片 -->
       <el-row :gutter="20" class="metric-row">
         <el-col :span="6">
@@ -138,7 +141,7 @@
           <el-descriptions-item label="价格差距">
             <span :class="diagnosisData.priceGap > 0 ? 'gap-negative' : 'gap-positive'">
               {{ diagnosisData.priceGap > 0 ? '+' : '' }}${{ (diagnosisData.priceGap || 0).toFixed(2) }}
-              ({{ diagnosisData.priceGap > 0 ? '+' : '' }}{{ (diagnosisData.priceGapPercent || 0).toFixed(1) }}%)
+              ({{ diagnosisData.priceGap > 0 ? '+' : '' }}{{ (diagnosisData.priceGapPercent || 0).toFixed(2) }}%)
             </span>
           </el-descriptions-item>
           <el-descriptions-item label="当前折扣">
@@ -149,10 +152,10 @@
           <el-descriptions-item label="营销策略">
             <div style="display: flex; gap: 8px;">
               <el-tag v-if="diagnosisData.hasCoupon" type="success" size="small">
-                优惠券 {{ diagnosisData.couponPct.toFixed(1) }}%
+                优惠券 {{ diagnosisData.couponPct.toFixed(2) }}%
               </el-tag>
               <el-tag v-if="diagnosisData.hasAds" type="warning" size="small">
-                广告 {{ diagnosisData.adBudgetPct.toFixed(1) }}%
+                广告 {{ diagnosisData.adBudgetPct.toFixed(2) }}%
               </el-tag>
               <el-tag v-if="!diagnosisData.hasCoupon && !diagnosisData.hasAds" type="info" size="small">
                 无促销
@@ -616,7 +619,7 @@ const renderRiskReward = () => {
       trigger: 'item',
       formatter: p => {
         const val = p.value
-        return `${p.name}<br/>金额: $${(val / 1000).toFixed(1)}k<br/>占比: ${p.percent.toFixed(1)}%`
+        return `${p.name}<br/>金额: $${(val / 1000).toFixed(2)}k<br/>占比: ${p.percent.toFixed(2)}%`
       }
     },
     legend: {
@@ -674,7 +677,7 @@ const renderWaterfall = () => {
       formatter: params => {
         let res = `${params[0].name}<br/>`
         params.forEach(p => {
-          const val = p.seriesName === '预测收益' ? `$${(p.value / 1000).toFixed(0)}k` : p.value.toFixed(0)
+          const val = p.seriesName === '预测收益' ? `$${(p.value / 1000).toFixed(2)}k` : p.value.toFixed(0)
           res += `${p.marker} ${p.seriesName}: ${val}<br/>`
         })
         return res
@@ -688,7 +691,7 @@ const renderWaterfall = () => {
     },
     yAxis: [
       { type: 'value', name: '销量', position: 'left' },
-      { type: 'value', name: '收益($)', position: 'right', axisLabel: { formatter: v => (v / 1000).toFixed(0) + 'k' } }
+      { type: 'value', name: '收益($)', position: 'right', axisLabel: { formatter: v => (v / 1000).toFixed(2) + 'k' } }
     ],
     series: [
       {
@@ -724,7 +727,7 @@ const renderWaterfall = () => {
         label: {
           show: true,
           position: 'top',
-          formatter: p => '$' + (p.value / 1000).toFixed(0) + 'k',
+          formatter: p => '$' + (p.value / 1000).toFixed(2) + 'k',
           fontSize: 10
         }
       }
@@ -753,12 +756,12 @@ const renderHeatmap = () => {
       formatter: p => {
         const price = prices[p.data[1]]
         const disc = discounts[p.data[0]]
-        return `价格:$${price.toFixed(2)}<br/>折扣:${disc.toFixed(1)}%<br/>收益:$${(p.data[2] / 1000).toFixed(1)}k`
+        return `价格:$${price.toFixed(2)}<br/>折扣:${disc.toFixed(2)}%<br/>收益:$${(p.data[2] / 1000).toFixed(2)}k`
       }
     },
     grid: { height: '65%', top: '10%' },
     xAxis: { type: 'category', data: discounts.map(d => d + '%'), name: '折扣' },
-    yAxis: { type: 'category', data: prices.map(p => '$' + p.toFixed(0)), name: '价格' },
+    yAxis: { type: 'category', data: prices.map(p => '$' + p.toFixed(2)), name: '价格' },
     visualMap: {
       min: minRev,
       max: maxRev,
@@ -769,14 +772,14 @@ const renderHeatmap = () => {
       inRange: {
         color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026']
       },
-      formatter: v => '$' + (v / 1000).toFixed(0) + 'k'
+      formatter: v => '$' + (v / 1000).toFixed(2) + 'k'
     },
     series: [{
       type: 'heatmap',
       data: values,
       label: {
         show: true,
-        formatter: p => (p.data[2] / 1000).toFixed(0) + 'k',
+        formatter: p => (p.data[2] / 1000).toFixed(2) + 'k',
         fontSize: 9,
         color: '#ffffff'
       },
@@ -851,10 +854,16 @@ onUnmounted(() => {
 .decision-center {
   padding: 0;
 }
+.intro-card {
+  margin-bottom: 16px;
+}
+.panel-card {
+  margin-bottom: 16px;
+}
 .card-header {
   display: flex;
   align-items: center;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 .card-header .el-icon {
@@ -863,7 +872,7 @@ onUnmounted(() => {
 .card-subtitle {
   margin-top: 4px;
   font-size: 13px;
-  color: #909399;
+  color: #606266;
 }
 .metric-row {
   margin-bottom: 16px;

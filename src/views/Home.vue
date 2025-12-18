@@ -117,7 +117,7 @@ const loadSystemStats = async () => {
     systemStats.value.avgPrice = Number(avgPrice.toFixed(2))
 
     const r2 = modelMetrics?.r2
-    const accuracy = r2 != null ? Number((r2 * 100).toFixed(1)) : 0
+    const accuracy = r2 != null ? Number((r2 * 100).toFixed(2)) : 0
     systemStats.value.modelAccuracy = accuracy
   } catch (e) {
     console.error('加载系统概览数据失败', e)

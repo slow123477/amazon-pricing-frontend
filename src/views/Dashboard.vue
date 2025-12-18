@@ -252,7 +252,7 @@ const loadAllData = async () => {
       maxPrice: priceRange.maxPrice
     })
     
-    // 加载价格推荐数据
+    // 加载价格评估数据
     // 单分类模式：需要获取该分类下所有商品数据用于散点图和热力图
     // 多分类模式：只需要少量数据用于重新计算分类统计
     let recommendationsResponse = await priceApi.getRecommendations({
@@ -267,7 +267,7 @@ const loadAllData = async () => {
     // 保存全部分类数据用于雷达图对比
     const allCategoryData = categoryData
     
-    // 如果筛选了价格区间，需要从价格推荐数据中重新计算分类统计
+    // 如果筛选了价格区间，需要从价格评估数据中重新计算分类统计
     if (filters.value.priceRange && recommendationsList.length > 0) {
       // 根据筛选后的推荐数据重新计算分类统计
       const categoryMap = new Map()
@@ -344,7 +344,7 @@ const loadAllData = async () => {
       const { modelApi } = await import('@/api/model')
       const modelMetrics = await modelApi.getModelMetrics()
       if (modelMetrics && modelMetrics.r2) {
-        overview.value.modelAccuracy = parseFloat((modelMetrics.r2 * 100).toFixed(1))
+        overview.value.modelAccuracy = parseFloat((modelMetrics.r2 * 100).toFixed(2))
       }
     } catch (error) {
       console.warn('加载模型指标失败，使用默认值:', error)
@@ -466,11 +466,11 @@ const renderCategoryChart = (data, isSingleCategory = false) => {
           axisLabel: {
             distance: 25,
             fontSize: 10,
-            formatter: (value) => (value / 20).toFixed(1)
+            formatter: (value) => (value / 20).toFixed(2)
           },
           detail: {
             valueAnimation: true,
-            formatter: `${avgRating.toFixed(1)}分`,
+            formatter: `${avgRating.toFixed(2)}分`,
             fontSize: 16,
             offsetCenter: [0, '70%']
           },
@@ -507,7 +507,7 @@ const renderCategoryChart = (data, isSingleCategory = false) => {
           },
           detail: {
             valueAnimation: true,
-            formatter: `${avgDiscount.toFixed(1)}%`,
+            formatter: `${avgDiscount.toFixed(2)}%`,
             fontSize: 16,
             offsetCenter: [0, '70%']
           },
@@ -769,33 +769,203 @@ const renderScatterChart = (data, isSingleCategory = false, recommendationsList 
       ]
     })
   } else {
-    // 多分类模式：显示各分类的平均价格与销量
+    // 多分类模式：显示各分类的平均价格与销量（柱状图+折线图组合）
+    // 对数据按平均价格排序，取前12个分类
+    const sortedData = [...data]
+      .sort((a, b) => (b.avgDiscountedPrice || 0) - (a.avgDiscountedPrice || 0))
+      .slice(0, 12)
+    
     scatterChart.setOption({
-      title: { text: '价格与销量分布关系', left: 'center', textStyle: { fontSize: 14 } },
-      tooltip: {
-        trigger: 'item',
-        formatter: (params) => {
-          return `${params.data[3]}<br/>价格: $${params.data[0]}<br/>销量: ${params.data[1]}`
+      title: { 
+        text: '各分类价格与销量对比 TOP12', 
+        left: 'center',
+        top: 10,
+        textStyle: { 
+          fontSize: 15,
+          fontWeight: 'bold',
+          color: '#333'
         }
       },
-      xAxis: { type: 'value', name: '平均价格($)' },
-      yAxis: { type: 'value', name: '平均销量' },
-      series: [{
-        type: 'scatter',
-        data: data.map(item => [
-          item.avgDiscountedPrice || 0,
-          item.avgMonthlySales || 0,
-          item.productCount || 0,
-          item.productCategory
-        ]),
-        symbolSize: (data) => {
-          return Math.sqrt(data[2]) * 2 // 根据商品数量调整点大小
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderColor: '#ddd',
+        borderWidth: 1,
+        textStyle: {
+          color: '#333'
         },
-        itemStyle: {
-          color: '#5470c6',
-          opacity: 0.6
+        axisPointer: { 
+          type: 'cross',
+          crossStyle: {
+            color: '#999'
+          }
+        },
+        formatter: (params) => {
+          let result = `<div style="font-weight:bold;margin-bottom:5px">${params[0].axisValue}</div>`
+          params.forEach(item => {
+            if (item.seriesName === '平均价格') {
+              result += `${item.marker}<span style="color:#5470c6;font-weight:600">${item.seriesName}: $${item.value}</span><br/>`
+            } else {
+              result += `${item.marker}<span style="color:#ee6666;font-weight:600">${item.seriesName}: ${item.value}</span><br/>`
+            }
+          })
+          return result
         }
-      }]
+      },
+      legend: {
+        data: ['平均价格', '平均销量'],
+        top: 40,
+        left: 'center',
+        itemGap: 30,
+        textStyle: {
+          fontSize: 12,
+          fontWeight: 500
+        }
+      },
+      grid: {
+        left: '8%',
+        right: '8%',
+        top: '25%',
+        bottom: '18%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: sortedData.map(item => item.productCategory),
+        axisLine: {
+          lineStyle: {
+            color: '#ddd'
+          }
+        },
+        axisLabel: {
+          rotate: -35,
+          fontSize: 11,
+          interval: 0,
+          color: '#666',
+          margin: 15
+        },
+        axisTick: {
+          show: false
+        }
+      },
+      yAxis: [
+        {
+          type: 'value',
+          name: '平均价格($)',
+          position: 'left',
+          nameTextStyle: {
+            color: '#5470c6',
+            fontSize: 12,
+            fontWeight: 600
+          },
+          axisLine: {
+            show: true,
+            lineStyle: {
+              color: '#5470c6'
+            }
+          },
+          axisLabel: {
+            formatter: '${value}',
+            color: '#5470c6',
+            fontSize: 11
+          },
+          splitLine: {
+            lineStyle: {
+              color: '#f0f0f0',
+              type: 'dashed'
+            }
+          }
+        },
+        {
+          type: 'value',
+          name: '平均销量',
+          position: 'right',
+          nameTextStyle: {
+            color: '#ee6666',
+            fontSize: 12,
+            fontWeight: 600
+          },
+          axisLine: {
+            show: true,
+            lineStyle: {
+              color: '#ee6666'
+            }
+          },
+          axisLabel: {
+            color: '#ee6666',
+            fontSize: 11
+          },
+          splitLine: {
+            show: false
+          }
+        }
+      ],
+      series: [
+        {
+          name: '平均价格',
+          type: 'bar',
+          yAxisIndex: 0,
+          data: sortedData.map(item => (item.avgDiscountedPrice || 0).toFixed(2)),
+          barWidth: '40%',
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#5b8ff9' },
+              { offset: 1, color: '#5470c6' }
+            ]),
+            borderRadius: [6, 6, 0, 0],
+            shadowColor: 'rgba(84, 112, 198, 0.3)',
+            shadowBlur: 8,
+            shadowOffsetY: 4
+          },
+          emphasis: {
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#6ba3ff' },
+                { offset: 1, color: '#5b8ff9' }
+              ])
+            }
+          },
+          label: {
+            show: false
+          }
+        },
+        {
+          name: '平均销量',
+          type: 'line',
+          yAxisIndex: 1,
+          data: sortedData.map(item => Math.round(item.avgMonthlySales || 0)),
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 8,
+          lineStyle: {
+            color: '#ee6666',
+            width: 3,
+            shadowColor: 'rgba(238, 102, 102, 0.3)',
+            shadowBlur: 6,
+            shadowOffsetY: 3
+          },
+          itemStyle: {
+            color: '#ee6666',
+            borderWidth: 2,
+            borderColor: '#fff'
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(238, 102, 102, 0.3)' },
+              { offset: 1, color: 'rgba(238, 102, 102, 0.05)' }
+            ])
+          },
+          emphasis: {
+            focus: 'series',
+            itemStyle: {
+              color: '#ff5555',
+              borderWidth: 3,
+              shadowBlur: 10,
+              shadowColor: 'rgba(238, 102, 102, 0.5)'
+            }
+          }
+        }
+      ]
     })
   }
 }
@@ -833,75 +1003,113 @@ const renderHeatmapChart = (categoryData, discountData, isSingleCategory = false
   heatmapChart = echarts.init(heatmapChartRef.value)
   
   if (isSingleCategory && recommendationsList.length > 0) {
-    // 单分类模式：价格区间-折扣区间热力图
+    // 单分类模式：价格区间分布热力图（使用诊断结果作为第二维度）
     const priceRanges = ['0-50', '50-100', '100-200', '200-300', '300-500', '500-1000', '1000+']
-    const discountRanges = ['0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60%+']
+    const diagnosisTypes = ['价格偏高', '价格合理', '价格偏低']
     
-    // 计算每个价格区间-折扣区间的商品数量
+    // 计算每个价格区间-诊断类型的商品数量
     const heatmapData = []
     priceRanges.forEach((priceRange, i) => {
-      discountRanges.forEach((discountRange, j) => {
+      diagnosisTypes.forEach((diagnosisType, j) => {
         const [priceMin, priceMax] = priceRange === '1000+' 
           ? [1000, Infinity] 
           : priceRange.split('-').map(Number)
-        const [discountMin, discountMax] = discountRange === '60%+'
-          ? [60, Infinity]
-          : discountRange.replace('%', '').split('-').map(Number)
         
         const count = recommendationsList.filter(item => {
           const price = item.actualPrice || item.predictedPrice || 0
-          const discount = item.discountPercentage || 0
-          return price >= priceMin && price < priceMax && discount >= discountMin && discount < discountMax
+          const diagnosis = item.diagnosis || '价格合理'
+          return price >= priceMin && price < priceMax && diagnosis === diagnosisType
         }).length
         
-        if (count > 0) {
-          heatmapData.push([j, i, count])
-        }
+        // 总是添加数据点，即使count为0，这样热力图才能显示完整的网格
+        heatmapData.push([j, i, count])
       })
     })
     
+    const maxCount = Math.max(...heatmapData.map(item => item[2]), 1)
+    
     heatmapChart.setOption({
       title: { 
-        text: `${categoryData[0]?.productCategory || ''} - 价格与折扣分布热力图`, 
+        text: `${categoryData[0]?.productCategory || ''} - 价格与诊断分布热力图`, 
         left: 'center', 
-        top: '5%',
-        textStyle: { fontSize: 14 } 
+        top: '3%',
+        textStyle: { fontSize: 14, fontWeight: 'bold' } 
       },
       tooltip: { 
         position: 'top',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderColor: '#ddd',
+        borderWidth: 1,
+        textStyle: {
+          color: '#333'
+        },
         formatter: (params) => {
-          return `价格: ${priceRanges[params.data[1]]}<br/>折扣: ${discountRanges[params.data[0]]}<br/>商品数: ${params.data[2]}`
+          return `<div style="font-weight:bold;margin-bottom:5px">${priceRanges[params.data[1]]}</div>` +
+                 `诊断结果: ${diagnosisTypes[params.data[0]]}<br/>` +
+                 `商品数量: ${params.data[2]}`
         }
       },
-      grid: { height: '60%', top: '20%' },
+      grid: { 
+        height: '70%', 
+        top: '15%',
+        left: '12%',
+        right: '8%',
+        bottom: '15%'
+      },
       xAxis: {
         type: 'category',
-        data: discountRanges,
-        splitArea: { show: true }
+        data: diagnosisTypes,
+        splitArea: { show: true },
+        axisLabel: {
+          fontSize: 11,
+          color: '#666'
+        }
       },
       yAxis: {
         type: 'category',
         data: priceRanges,
-        splitArea: { show: true }
+        splitArea: { show: true },
+        axisLabel: {
+          fontSize: 11,
+          color: '#666'
+        }
       },
       visualMap: {
         min: 0,
-        max: Math.max(...heatmapData.map(item => item[2]), 1),
+        max: maxCount,
         calculable: true,
         orient: 'horizontal',
         left: 'center',
-        bottom: '5%',
+        bottom: '2%',
         inRange: {
-          color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffcc', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026']
+          color: ['#f7fcf5', '#e5f5e0', '#c7e9c0', '#a1d99b', '#74c476', '#41ab5d', '#238b45', '#005a32']
+        },
+        text: ['高', '低'],
+        textStyle: {
+          color: '#666'
         }
       },
       series: [{
         name: '商品数量',
         type: 'heatmap',
         data: heatmapData,
-        label: { show: true, fontSize: 10 },
+        label: { 
+          show: true, 
+          fontSize: 11,
+          fontWeight: 'bold',
+          color: '#333'
+        },
         emphasis: {
-          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' }
+          itemStyle: { 
+            shadowBlur: 10, 
+            shadowColor: 'rgba(0, 0, 0, 0.5)',
+            borderColor: '#333',
+            borderWidth: 2
+          }
+        },
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2
         }
       }]
     })
@@ -1163,7 +1371,17 @@ const renderRadarChart = (data, isSingleCategory = false, allCategoryData = []) 
         left: 'center', 
         textStyle: { fontSize: 14 } 
       },
-      tooltip: {},
+      tooltip: {
+        formatter: (params) => {
+          const data = params.value
+          return `${params.name}<br/>
+平均价格: ${Number(data[0]).toFixed(2)}<br/>
+平均销量: ${Number(data[1]).toFixed(2)}<br/>
+平均评分: ${Number(data[2]).toFixed(2)}<br/>
+平均折扣: ${Number(data[3]).toFixed(2)}<br/>
+商品数量: ${Number(data[4]).toFixed(2)}`
+        }
+      },
       legend: {
         data: [currentCategory.productCategory, '全部平均'],
         top: 30
@@ -1207,7 +1425,17 @@ const renderRadarChart = (data, isSingleCategory = false, allCategoryData = []) 
     
     radarChart.setOption({
       title: { text: '分类多维度对比（Top 5）', left: 'center', textStyle: { fontSize: 14 } },
-      tooltip: {},
+      tooltip: {
+        formatter: (params) => {
+          const data = params.value
+          return `${params.name}<br/>
+平均价格: ${Number(data[0]).toFixed(2)}<br/>
+平均销量: ${Number(data[1]).toFixed(2)}<br/>
+平均评分: ${Number(data[2]).toFixed(2)}<br/>
+平均折扣: ${Number(data[3]).toFixed(2)}<br/>
+商品数量: ${Number(data[4]).toFixed(2)}`
+        }
+      },
       legend: {
         data: topCategories.map(item => item.productCategory),
         top: 30

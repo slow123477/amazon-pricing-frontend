@@ -4,7 +4,7 @@ import request from '@/utils/request'
  * 价格相关 API
  */
 export const priceApi = {
-  // 查询价格推荐列表（分页）
+  // 查询价格评估列表（分页）
   getRecommendations(params) {
     const requestParams = {
       category: params.category,
@@ -39,7 +39,7 @@ export const priceApi = {
     })
   },
 
-  // 获取价格推荐概览统计
+  // 获取价格评估概览统计
   getRecommendationsOverview(params) {
     const requestParams = {}
     if (params?.category) {
@@ -70,15 +70,6 @@ export const priceApi = {
       url: '/price/prediction',
       method: 'get',
       params: { title }
-    })
-  },
-
-  // 实时价格诊断
-  diagnosePrice(data) {
-    return request({
-      url: '/price/diagnosis',
-      method: 'post',
-      data
     })
   },
 

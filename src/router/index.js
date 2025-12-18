@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Dashboard from '../views/Dashboard.vue'
-import PriceDiagnosis from '../views/PriceDiagnosis.vue'
 import PriceRecommendations from '../views/PriceRecommendations.vue'
 import ModelMetrics from '../views/ModelMetrics.vue'
 import RatingAnalysis from '../views/RatingAnalysis.vue'
@@ -30,11 +29,6 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login
-  },
-  {
-    path: '/price-diagnosis',
-    name: 'PriceDiagnosis',
-    component: PriceDiagnosis
   },
   {
     path: '/price-recommendations',
