@@ -80,7 +80,7 @@
           <el-sub-menu index="price">
             <template #title>
               <el-icon><Money /></el-icon>
-              <span>商品决策</span>
+              <span>决策中心</span>
             </template>
             <el-menu-item index="/decision-center">
               <el-icon><DataAnalysis /></el-icon>
