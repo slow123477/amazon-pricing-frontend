@@ -59,7 +59,7 @@
           <el-card shadow="hover" class="quick-card" @click="$router.push('/decision-center')">
             <el-icon class="quick-icon" color="#409EFF"><Money /></el-icon>
             <div class="quick-title">决策中心</div>
-            <div class="quick-desc">查看定价/库存综合决策</div>
+            <div class="quick-desc">商品定价与收益策略模拟</div>
           </el-card>
         </el-col>
         <el-col :span="6">

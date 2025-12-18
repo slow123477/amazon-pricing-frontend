@@ -914,6 +914,7 @@ onUnmounted(() => {
   font-weight: 600;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .intro-card .card-header .el-icon {
