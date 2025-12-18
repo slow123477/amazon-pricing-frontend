@@ -13,6 +13,26 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // 将当前登录用户信息透传给后端，用于保存预测记录和权限控制
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        if (user && user.id != null) {
+          config.headers['X-User-Id'] = user.id
+        }
+        if (user && user.username) {
+          config.headers['X-Username'] = user.username
+        }
+        if (user && user.role) {
+          config.headers['X-User-Role'] = user.role
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+
     return config
   },
   error => Promise.reject(error)

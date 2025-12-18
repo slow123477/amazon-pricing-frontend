@@ -80,11 +80,11 @@
           <el-sub-menu index="price">
             <template #title>
               <el-icon><Money /></el-icon>
-              <span>决策中心</span>
+              <span>商品决策</span>
             </template>
             <el-menu-item index="/decision-center">
               <el-icon><DataAnalysis /></el-icon>
-              <span>决策中心</span>
+              <span>商品决策</span>
             </el-menu-item>
             <el-menu-item index="/price-diagnosis">
               <el-icon><Search /></el-icon>
@@ -93,6 +93,10 @@
             <el-menu-item index="/price-recommendations">
               <el-icon><Document /></el-icon>
               <span>价格推荐</span>
+            </el-menu-item>
+            <el-menu-item index="/decision-records">
+              <el-icon><Document /></el-icon>
+              <span>预测记录</span>
             </el-menu-item>
           </el-sub-menu>
 

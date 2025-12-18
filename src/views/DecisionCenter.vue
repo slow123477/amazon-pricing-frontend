@@ -3,10 +3,10 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><DataAnalysis /></el-icon> 决策中心 · 新版场景模拟器</span>
+          <span><el-icon><DataAnalysis /></el-icon> 商品决策</span>
         </div>
         <div class="card-subtitle">
-          输入价格/折扣/竞品价/广告/优惠券，结合新模型给出收益/销量预测与 6 张对比图。
+          输入价格/折扣/竞品价/广告/优惠券，结合预测模型给出收益/销量预测与6张对比图。
         </div>
       </template>
 

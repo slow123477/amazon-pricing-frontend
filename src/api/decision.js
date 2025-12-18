@@ -38,6 +38,15 @@ export const decisionApi = {
       method: 'post',
       data
     })
+  },
+
+  // 决策中心预测记录列表（分页）
+  listRecords(params) {
+    return request({
+      url: '/decision/records',
+      method: 'get',
+      params
+    })
   }
 }
 

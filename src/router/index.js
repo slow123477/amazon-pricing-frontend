@@ -13,6 +13,7 @@ import OpportunityMonitor from '../views/OpportunityMonitor.vue'
 import DecisionCenter from '../views/DecisionCenter.vue'
 import Login from '../views/Login.vue'
 import UserManage from '../views/UserManage.vue'
+import PredictionRecords from '../views/PredictionRecords.vue'
 
 const routes = [
   {
@@ -84,6 +85,11 @@ const routes = [
     path: '/decision-center',
     name: 'DecisionCenter',
     component: DecisionCenter
+  },
+  {
+    path: '/decision-records',
+    name: 'PredictionRecords',
+    component: PredictionRecords
   }
 ]
 
