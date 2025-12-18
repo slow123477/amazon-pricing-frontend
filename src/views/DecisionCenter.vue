@@ -271,7 +271,7 @@
         <el-row :gutter="20" class="mb-4">
           <el-col :span="12">
             <el-card shadow="never" class="chart-card">
-              <template #header><span class="result-title">策略对比雷达图</span></template>
+              <template #header><span class="result-title">收益结构占比</span></template>
               <div ref="riskRewardRef" style="width: 100%; height: 320px"></div>
             </el-card>
           </el-col>
@@ -545,7 +545,18 @@ const renderDiscountCurve = () => {
   discountCurveChart = echarts.init(discountCurveRef.value)
   const data = charts.value.discountCurve
   discountCurveChart.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: { 
+      trigger: 'axis',
+      formatter: params => {
+        const x = params[0]?.axisValue || ''
+        let res = `${x}<br/>`
+        params.forEach(p => {
+          const val = Number(p.value || 0).toFixed(2)
+          res += `${p.marker} ${p.seriesName}: ${val}<br/>`
+        })
+        return res
+      }
+    },
     xAxis: { type: 'category', data: data.map(d => d.discount + '%'), name: '折扣(%)' },
     yAxis: [
       { type: 'value', name: '销量' },
@@ -560,86 +571,85 @@ const renderDiscountCurve = () => {
 }
 
 const renderRiskReward = () => {
-  if (!riskRewardRef.value || !recommendations.value.length) return
+  if (!riskRewardRef.value || !analysisCards.value || !analysisCards.value.predictedSales) return
   riskRewardChart?.dispose()
   riskRewardChart = echarts.init(riskRewardRef.value)
-  
-  // 使用策略推荐数据生成雷达图，对比三个策略
-  const recs = recommendations.value
-  const currentSales = analysisCards.value.predictedSales || 0
-  const currentRevenue = analysisCards.value.predictedRevenue || 0
-  
-  // 计算各维度的最大值用于归一化
-  const maxSales = Math.max(currentSales, ...recs.map(r => r.predictedSales || 0))
-  const maxRevenue = Math.max(currentRevenue, ...recs.map(r => r.predictedRevenue || 0))
-  const maxDiscount = Math.max(form.value.discount || 0, ...recs.map(r => r.discount || 0), 30)
-  
-  // 归一化函数（0-100）
-  const normalize = (val, max) => max > 0 ? Math.min(100, (val / max) * 100) : 0
-  
-  // 计算利润率得分（折扣越低利润率越高）
-  const profitScore = (discount) => Math.max(0, 100 - discount * 2)
-  
-  // 风险得分（折扣越高风险越高，反转为安全得分）
-  const safetyScore = (discount, coupon, ad) => Math.max(0, 100 - discount - (coupon || 0) - (ad || 0) * 0.5)
-  
-  const seriesData = []
-  
-  // 当前策略
-  seriesData.push({
-    value: [
-      normalize(currentSales, maxSales),
-      normalize(currentRevenue, maxRevenue),
-      profitScore(form.value.discount || 0),
-      safetyScore(form.value.discount || 0, form.value.couponPct, form.value.adBudgetPct),
-      50 // 灵活性中等
-    ],
-    name: '当前策略',
-    lineStyle: { color: '#909399', type: 'dashed' },
-    itemStyle: { color: '#909399' },
-    areaStyle: { color: 'rgba(144, 147, 153, 0.2)' }
-  })
-  
-  // 三个推荐策略
-  const colors = ['#E6A23C', '#409EFF', '#67C23A']
-  recs.forEach((rec, idx) => {
-    seriesData.push({
-      value: [
-        normalize(rec.predictedSales || 0, maxSales),
-        normalize(rec.predictedRevenue || 0, maxRevenue),
-        profitScore(rec.discount || 0),
-        safetyScore(rec.discount || 0, rec.couponPct, rec.adBudgetPct),
-        idx === 0 ? 30 : idx === 1 ? 70 : 50 // 保守30，激进70，均衡50
-      ],
-      name: rec.label,
-      lineStyle: { color: colors[idx] },
-      itemStyle: { color: colors[idx] },
-      areaStyle: { color: colors[idx].replace(')', ', 0.15)').replace('rgb', 'rgba') }
-    })
-  })
-  
+
+  const price = form.value.price || 0
+  const discount = form.value.discount || 0
+  const hasCoupon = form.value.hasCoupon
+  const couponPct = form.value.couponPct || 0
+  const hasAds = form.value.hasAds
+  const adBudgetPct = form.value.adBudgetPct || 0
+
+  const sales = analysisCards.value.predictedSales || 0
+  const predictedRevenue = analysisCards.value.predictedRevenue || 0
+
+  // 原始标价收入（未打折、未用券）
+  const listRevenue = price * sales
+
+  // 实际成交价收入（打折+优惠券之后）
+  const totalDiscountPct = discount + (hasCoupon ? couponPct : 0)
+  const effectivePct = Math.max(0, 1 - totalDiscountPct / 100)
+  const actualRevenue = listRevenue * effectivePct
+
+  // 优惠让利成本 = 标价收入 - 实际收入
+  const promoCost = Math.max(0, listRevenue - actualRevenue)
+
+  // 广告成本 = 预测收益 * 广告占比（如果开广告）
+  const adCost = hasAds ? predictedRevenue * (adBudgetPct / 100) : 0
+
+  // 简单认为“可留存利润 = 实际收入 - 广告成本”
+  const profit = Math.max(0, actualRevenue - adCost)
+
+  const pieData = [
+    { name: '商品收入', value: profit },
+    { name: '优惠让利成本', value: promoCost },
+    { name: '广告成本', value: adCost }
+  ].filter(item => item.value > 0)
+
+  const total = pieData.reduce((sum, item) => sum + item.value, 0)
+  if (total === 0) return
+
   riskRewardChart.setOption({
-    tooltip: { trigger: 'item' },
-    legend: { 
-      data: ['当前策略', ...recs.map(r => r.label)],
-      top: 0,
-      textStyle: { fontSize: 11 }
+    tooltip: {
+      trigger: 'item',
+      formatter: p => {
+        const val = p.value
+        return `${p.name}<br/>金额: $${(val / 1000).toFixed(1)}k<br/>占比: ${p.percent.toFixed(1)}%`
+      }
     },
-    radar: {
-      indicator: [
-        { name: '销量', max: 100 },
-        { name: '收益', max: 100 },
-        { name: '利润率', max: 100 },
-        { name: '安全性', max: 100 },
-        { name: '灵活性', max: 100 }
-      ],
-      center: ['50%', '55%'],
-      radius: '60%'
+    legend: {
+      orient: 'vertical',
+      left: '5%',
+      top: 'middle'
     },
-    series: [{
-      type: 'radar',
-      data: seriesData
-    }]
+    series: [
+      {
+        name: '收益结构',
+        type: 'pie',
+        radius: ['45%', '70%'],
+        center: ['60%', '55%'],
+        avoidLabelOverlap: false,
+        // 如果广告成本很小，保证至少有一个可见角度
+        minAngle: pieData.length >= 3 ? 5 : 0,
+        label: {
+          show: true,
+          formatter: '{b}\n{d}%',
+          fontSize: 11
+        },
+        labelLine: {
+          length: 15,
+          length2: 10
+        },
+        data: pieData,
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        color: ['#67C23A', '#E6A23C', '#F56C6C']
+      }
+    ]
   })
 }
 
@@ -768,11 +778,7 @@ const renderHeatmap = () => {
         show: true,
         formatter: p => (p.data[2] / 1000).toFixed(0) + 'k',
         fontSize: 9,
-        color: p => {
-          const val = p.data[2]
-          const mid = (minRev + maxRev) / 2
-          return val > mid ? '#fff' : '#333'
-        }
+        color: '#ffffff'
       },
       emphasis: { 
         itemStyle: { 
@@ -790,7 +796,16 @@ const renderPriceBand = () => {
   priceBandChart = echarts.init(priceBandRef.value)
   const data = charts.value.priceBand
   priceBandChart.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: { 
+      trigger: 'axis',
+      formatter: params => {
+        const p = params[0]
+        if (!p) return ''
+        const name = p.axisValue
+        const val = Number(p.data || 0).toFixed(2)
+        return `${name}<br/>销量: ${val}`
+      }
+    },
     xAxis: { type: 'category', data: data.map(d => '$' + d.priceBand), name: '价格带' },
     yAxis: { type: 'value', name: '销量' },
     series: [
